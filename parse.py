@@ -1,16 +1,7 @@
-import re, copy
-
 import pandas as pd
-from Bio import SeqIO
+import gumpy, numpy
 
-import gumpy
-
-'''Version of translate which uses the raw postion, reference and alt values to bypass the problems identified with HGVS usage.
-Requires gumpy and BioPython
-'''
 count = 0
-count2 = 0
-
 def parse_who_catalog(filename):
     '''Parses the WHO TB catalog
 
@@ -22,174 +13,181 @@ def parse_who_catalog(filename):
     df = pd.read_excel(filename, sheet_name="Genome_indices")
     return df
 
-
-def get_snps(gene, pos, end, ref, alt):
-    '''Get the SNPs from given pos, ref and alt values
-
-    Args:
-        gene (str): Gene name
-        pos (int): Gene index of the item
-        end (int): Maximum gene index
-        ref (str): Reference nucleotide(s)
-        alt (str): Mutated nucleotide(s)
-
-    Returns:
-        list(str): List of SNP mutations in GARC
-    '''
-    if pos > end:
-        return []
-    if len(ref) == 1 and len(alt) == 1:
-        return [gene + "@" + ref.lower() + str(pos) + alt.lower()]
-    else:
-        mutations = []
-        for (i, (r, a)) in enumerate(zip(ref, alt)):
-            if r != a:
-                # There is a SNP here
-                if pos + i > end:
-                    return mutations
-                mutations.append(gene + "@" + r.lower() +
-                                 str(pos + i) + a.lower())
-    return mutations
-
-
-def to_garc(gene, pos, end, ref, alt):
-    '''Converts a given mutation to GARC
-
-    Args:
-        gene (str): Gene name
-        pos (int): Gene index
-        end (int): Maximum index for this gene. Required as catalogue specifies bases past the 3' end
-        ref (str): Reference nucleotide(s)
-        alt (str): Mutant nucleotide(s)
-
-    Returns:
-        list(str): List of the mutations in GARC
-    '''
-    if len(ref) == len(alt):
-        # SNP(s)
-        return get_snps(gene, pos, end, ref, alt)
-    elif len(ref) > len(alt):
-        # Del (and SNPs)
-        # Check for SNPs within the shared bases
-        snps = get_snps(gene, pos, end, ref, alt)
-        # Get the dels
-        dels = [gene + "@" + str(pos + len(alt)) + "_del_" + ref[len(alt):]]
-        return snps + dels
-    elif len(ref) < len(alt):
-        # Ins (and SNPs)
-        # Check for SNPs within shared bases
-        snps = get_snps(gene, pos, end, ref, alt)
-        # Get the ins
-        ins = [gene + "@" + str(pos + len(alt)) + "_ins_" + alt[len(ref):]]
-        return snps + ins
-
-def to_aa(reference, mutation):
-    '''Converts mutation from nucleotide to amino acid as appropriate
+def rev_comp_snp(reference, gene, pos, ref, alt, masks):
+    '''Convert a mutation into the appropriate number of SNPs in GARC, converting to amino acids as required
 
     Args:
         reference (gumpy.Genome): Reference genome object
-        mutations (str): Mutation in GARC
+        gene (str): Gene name
+        pos (int): Genome index
+        ref (str): Reference base(s)
+        alt (str): Mutant base(s)
+        masks (dict): Dictionary used for caching the masks required for rebuilding genes
+    Returns:
+        list(str): List of SNP mutations in GARC
     '''
-    if re.compile(r"([a-zA-Z0-9]+)@([acgt])(\d+)([acgt])").fullmatch(mutation):
-        # SNP format
-        gene, ref, pos, alt = re.compile(
-            r"([a-zA-Z0-9]+)@([acgt])(\d+)([acgt])").findall(mutation)[0]
+    mutations = []
+    ref_seq = reference.nucleotide_sequence.copy()
+    for (index, (r, a)) in enumerate(zip(ref, alt)):
+        if r != a:
+            if (pos + index) - reference.genes_lookup[gene]["start"] <= 0:
+                #Past the end of the gene so just return
+                return mutations
+            if reference.genes_lookup[gene]["end"] - (pos + index) < 0 or reference.genes[gene].codes_protein == False:
+                #Promoter or non-coding so return the difference in nucleotides
+                r,a  = gumpy.Gene._complement([r, a])
+                mutations.append(gene + "@" + r + str(reference.genes_lookup[gene]["end"] - (pos + index)) + a)
+            else:
+                ref_seq[pos + index - 1] = a
+    if reference.genes[gene].codes_protein:
+        stacked_mask, mask = masks[gene]
+
+        g = gumpy.Gene(   name=gene,\
+                    nucleotide_sequence=ref_seq[mask],\
+                    index=reference.nucleotide_index[mask],\
+                    nucleotide_number=reference.stacked_nucleotide_number[stacked_mask],\
+                    is_cds=reference.stacked_is_cds[stacked_mask],\
+                    is_promoter=reference.stacked_is_promoter[stacked_mask],\
+                    is_indel=reference.is_indel[mask],
+                    indel_length=reference.indel_length[mask],
+                    codes_protein=reference.genes_lookup[gene]['codes_protein'],\
+                    reverse_complement=reference.genes_lookup[gene]['reverse_complement'],\
+                    feature_type=reference.genes_lookup[gene]['type'])
+        
+        aa_mut = [(i+1, ref_aa, alt_aa) for (i, (ref_aa, alt_aa)) in enumerate(zip(reference.genes[gene].codons, g.codons)) if ref_aa != alt_aa]
+        for (pos_, r, a) in aa_mut:
+            r = g.codon_to_amino_acid[r]
+            a = g.codon_to_amino_acid[a]
+            if r == a:
+                mutations.append(gene + "@" + str(pos_) + "=")
+            else:
+                mutations.append(gene + "@" + r + str(pos_) + a)
+    return mutations
+
+def rev_comp(reference, gene, pos, ref, alt, masks):
+    '''Handle reverse complement changes required
+
+    Args:
+        reference (gumpy.Genome): Reference genome object
+        gene (str): Name of the gene
+        pos (int): Genome index
+        ref (str): Reference bases
+        alt (str): Mutant bases
+        masks (dict): Dictionary used for caching the masks for rebuilding genes
+    Returns:
+        list(str): List of mutations in GARC
+    '''
+    if len(ref) == len(alt):
+        #SNP so convert to AA too
+        return rev_comp_snp(reference, gene, pos, ref, alt, masks)
+    elif len(ref) > len(alt):
+        #Del
+        snps = rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        dels = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(ref) - len(alt))))) + "_del_" + "".join(gumpy.Gene._complement(list(ref[len(alt):])))]
+        return dels + snps
+    elif len(ref) < len(alt):
+        #Ins
+        snps = rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        ins = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(alt) - len(ref))))) + "_ins_" + "".join(gumpy.Gene._complement(list(alt[len(ref):])))]
+        return ins + snps
+
+def snps(reference, gene, pos, ref, alt, masks):
+    '''Convert a mutation into the appropriate number of SNPs in GARC, converting to amino acids as required
+
+    Args:
+        reference (gumpy.Genome): Reference genome object
+        gene (str): Gene name
+        pos (int): Genome index
+        ref (str): Reference base(s)
+        alt (str): Mutant base(s)
+        masks (dict): Dictionary used for caching the masks required for rebuilding genes
+    Returns:
+        list(str): List of SNP mutations in GARC
+    '''
+    mutations = []
+    ref_seq = reference.nucleotide_sequence.copy()
+    for (index, (r, a)) in enumerate(zip(ref, alt)):
+        if r != a:
+            if reference.genes_lookup[gene]["end"] - (pos + index) <= 0:
+                #Past the end of the gene so just return
+                return mutations
+            if (pos + index) - reference.genes_lookup[gene]["start"] < 0 or reference.genes[gene].codes_protein == False:
+                #Promoter or non-coding so return the difference in nucleotides
+                mutations.append(gene + "@" + r + str((pos + index) - reference.genes_lookup[gene]["start"]) + a)
+            else:
+                ref_seq[pos + index - 1] = a
+    if reference.genes[gene].codes_protein:
+        stacked_mask, mask = masks[gene]
+
+        g = gumpy.Gene(   name=gene,\
+                    nucleotide_sequence=ref_seq[mask],\
+                    index=reference.nucleotide_index[mask],\
+                    nucleotide_number=reference.stacked_nucleotide_number[stacked_mask],\
+                    is_cds=reference.stacked_is_cds[stacked_mask],\
+                    is_promoter=reference.stacked_is_promoter[stacked_mask],\
+                    is_indel=reference.is_indel[mask],
+                    indel_length=reference.indel_length[mask],
+                    codes_protein=reference.genes_lookup[gene]['codes_protein'],\
+                    reverse_complement=reference.genes_lookup[gene]['reverse_complement'],\
+                    feature_type=reference.genes_lookup[gene]['type'])
+        
+        aa_mut = [(i+1, ref_aa, alt_aa) for (i, (ref_aa, alt_aa)) in enumerate(zip(reference.genes[gene].codons, g.codons)) if ref_aa != alt_aa]
+        for (pos_, r, a) in aa_mut:
+            r = g.codon_to_amino_acid[r]
+            a = g.codon_to_amino_acid[a]
+            if r == a:
+                mutations.append(gene + "@" + str(pos_) + "=")
+            else:
+                mutations.append(gene + "@" + r + str(pos_) + a)
+    return mutations
+
+def to_garc(reference, gene, pos, ref, alt, masks):
+    '''Convert to GARC
+
+    Args:
+        reference (gumpy.Genome): Reference genome object
+        pos (int): Genome index
+        ref (str): Reference base(s)
+        alt (str): Mutant base(s)
+    Returns:
+        list(str): List of mutations in GARC
+    '''
+    #Reverse complement genes need some alterations
+    if reference.genes[gene].reverse_complement:
+        return rev_comp(reference, gene, pos, ref, alt, masks)
+    #Just convert to GARC
     else:
-        # Just return frame shifts and indels as they make weird changes
-        return mutation
-    gene_name = gene
-    gene = reference.genes[gene]
-    if gene.reverse_complement:
-        global count
-        count += 1
-
-        # if gene.nucleotide_sequence[gene.is_cds][int(pos)] != ref:
-        #     print("##",mutation, gene.name, pos, gene.nucleotide_sequence[gene.is_cds][int(pos)], ref, alt, gene.reverse_complement)
-        #Undo the reverse complementing
-        gene.nucleotide_sequence=gene._complement(gene.nucleotide_sequence[::-1])
-        gene.index=gene.index[::-1]
-        gene.nucleotide_number=gene.nucleotide_number[::-1]
-        gene.is_cds=gene.is_cds[::-1]
-        gene.is_promoter=gene.is_promoter[::-1]
-        gene.is_indel=gene.is_indel[::-1]
-        gene.indel_length=gene.indel_length[::-1]
-        # pos = int(pos) - 1
-    #Rebuild a gene object with the alt value
-    if gene.nucleotide_sequence[gene.is_cds][int(pos)] != ref:
-        print(mutation, gene.name, pos, gene.nucleotide_sequence[gene.is_cds][int(pos)], ref, gene.reverse_complement)
-        # if reference.nucleotide_sequence[reference.genes_lookup[gene_name]["start"] + int(pos) -1] != ref:
-        #     print(reference.nucleotide_sequence[reference.genes_lookup[gene_name]["start"] + int(pos) - 1], int(pos), reference.genes_lookup[gene_name]["start"])
-        global count2
-        count2 += 1
-        print()
-    gene.nucleotide_sequence[gene.is_cds][int(pos)] = alt
-    g = gumpy.Gene(
-        name=gene.name,
-        nucleotide_sequence = gene.nucleotide_sequence,
-        index = gene.index,
-        nucleotide_number = gene.nucleotide_number,
-        is_cds = gene.is_cds,
-        is_promoter = gene.is_promoter,
-        is_indel = gene.is_indel,
-        indel_length = gene.indel_length,
-        reverse_complement = gene.reverse_complement,
-        codes_protein = gene.codes_protein,
-        feature_type = gene.feature_type
-    )
-    aa_index = 3
-
-    # # if gene.codes_protein:
-    # #     # Get reference AA
-    # #     if gene.reverse_complement:
-    # #         triplets = gene.triplet_number
-    # #         gene.nucleotide_sequence = gene.nucleotide_sequence[::-1]
-    # #         is_cds = gene.is_cds[::-1]
-    # #         ref = gene._complement([ref])[0]
-    # #         alt = gene._complement([alt])[0]
-    # #         pos = (int(pos) - len(gene.is_cds)) * -1
-    # #     else:
-    # #         triplets = gene.triplet_number
-    # #         is_cds = gene.is_cds
+        if len(ref) == len(alt):
+            return snps(reference, gene, pos, ref, alt, masks)
+        elif len(ref) > len(alt):
+            #Del
+            snp = snps(reference, gene, pos, ref, alt, masks)
+            dels = [gene + "@" + str(((pos + (len(ref) - len(alt))) - reference.genes_lookup[gene]["start"])) + "_del_" + ref[len(alt):]]
+            return snp + dels
+        elif len(ref) < len(alt):
+            snp = snps(reference, gene, pos, ref, alt, masks)       
+            ins = [gene + "@" + str(((pos + (len(alt) - len(ref))) - reference.genes_lookup[gene]["start"])) + "_ins_" + alt[len(ref):]]     
+            return ins + snp
 
 
-    # #     aa_index = triplets[int(pos)] - 1
-
-    #     if gene.nucleotide_sequence[is_cds][int(pos)] != ref:
-    #         print(gene_name, gene.nucleotide_sequence[is_cds][int(pos)], ref, pos, aa_index)
-    #     gene.nucleotide_sequence[is_cds][int(pos)] = alt
-    #     ref = gene.amino_acid_sequence[aa_index]
-    #     gene._translate_sequence()
-
-    #     alt = gene.amino_acid_sequence[aa_index]
-        # print(mutation, aa_index, ref, alt)
-        # print()
-    if ref != alt:
-        return gene_name + "@" + ref + str(aa_index + 1) + alt
-    else:
-        # Synonymous mutation
-        return gene_name + "@" + str(aa_index + 1) + "="
+def get_masks(reference, gene):
+    #The mask for all stacked arrays (N-dim)
+    stacked_mask = reference.stacked_gene_name == gene
+    #The mask for singular arrays (1-dim) by collapsing stacked mask to 1-dim
+    mask = numpy.any(stacked_mask, axis=0)
+    return stacked_mask, mask
 
 if __name__ == "__main__":
-    # Load the reference genome for gathering gene indices
-    genbank = SeqIO.read("NC_000962.3.gbk", "genbank")
-    # reference_genome = gumpy.Genome("NC_000962.3.gbk", multithreaded=True)
-    # reference_genome.save("reference.json.gz", compression_level=1)
-    reference_genome = gumpy.Genome.load("reference.json.gz")
-    gene_starts = {}
-    gene_ends = {}
-    codes_protein = {}
-    for feature in genbank.features:
-        if 'gene' in feature.qualifiers.keys():
-            gene_name = feature.qualifiers['gene'][0]
-        elif 'locus_tag' in feature.qualifiers.keys():
-            gene_name = feature.qualifiers['locus_tag'][0]
-        else:
-            continue
-        gene_starts[gene_name] = int(feature.location.start) + 1
-        gene_ends[gene_name] = int(feature.location.end)
-        codes_protein[gene_name] = feature.type != "rRNA"
+    #Load the reference genome
+    reference = gumpy.Genome.load("reference.json.gz")
 
+    #Load the catalogue
     data = parse_who_catalog("WHO-UCN-GTB-PCI-2021.7-eng.xlsx")
+
+    #The catalogue is grouped by gene, so we can store gene masks until they are no longer required
+    masks = {}
+
+    #Setuo details for drugs
     drug_columns = [
         'RIF_Conf_Grade',
         'INH_Conf_Grade',
@@ -212,61 +210,44 @@ if __name__ == "__main__":
             "U": set(),
             "S": set(),
             "?": set()} for drug in drug_columns}
-    incorrect = 0
+
+    #Iterate over the catalogue
     for (index, row) in data.iterrows():
         garc = []
-        # Get pos, ref, alt, gene_name
+        #Pull out gene name, pos, ref and alt
         gene = row["gene_name"]
-        if "," in str(row["final_annotation.Position"]):
-            # Mutliple indcies are included
-            if len(str(row["final_annotation.ReferenceNucleotide"])) == len(str(
-                    row["final_annotation.AlternativeNucleotide"])) == str(row["final_annotation.Position"]).count(","):
-                # There are the same number of indices as there are bases
-                # So each index corresponds to each base
-                for (pos, ref, alt) in zip(row["final_annotation.Position"].split(","), list(
-                        row["final_annotation.ReferenceNucleotide"]), list(row["final_annotation.AlternativeNucleotide"])):
-                    garc += to_garc(gene, int(pos) -
-                                    gene_starts[gene], gene_ends[gene] -
-                                    gene_starts[gene], ref, alt)
-            else:
-                # Weird edge case where the number of nucleotides is different than the number of indices
-                # This means that we have to determine which bases are
-                # referenced by the indices based on which are different
+        if masks.get(gene) is None:
+            #Cache the masks
+            masks = {gene: get_masks(reference, gene)}
+        pos = str(row["final_annotation.Position"])
+        ref = row["final_annotation.ReferenceNucleotide"]
+        alt = row["final_annotation.AlternativeNucleotide"]
+
+        #Check for multiple positions defined within pos
+        if len(pos.split(",")) > 1:
+            #There is more than 1 position defined
+            
+            #Case where the number of positions matches the number of reference bases
+            if len(pos.split(",")) == len(ref) == len(alt):
+                pos = pos.split(",")
+                for (p, r, a) in zip(pos, ref, alt):
+                    garc += to_garc(reference, gene, int(p), r, a, masks)
+            #Case where the number of positions is less than the number of reference bases
+            elif len(pos.split(",")) < len(ref):
                 index = 0
-                for (ref, alt) in zip(list(row["final_annotation.ReferenceNucleotide"]), list(
-                        row["final_annotation.AlternativeNucleotide"])):
-                    if ref != alt:
-                        pos = int(
-                            row["final_annotation.Position"].split(",")[index])
-                        garc += to_garc(gene, pos -
-                                        gene_starts[gene], gene_ends[gene] -
-                                        gene_starts[gene], ref, alt)
+                pos = pos.split(",")
+                if len(ref) != len(alt):
+                    raise Exception("Different ref and alt lengths")
+                for (r, a) in zip(ref, alt):
+                    if r != a:
+                        garc += to_garc(reference, gene, int(pos[index]), r, a, masks)
                         index += 1
+            else:
+                raise Exception("Weird format: "+ref+", "+alt)
         else:
-            # Single index, so continue as expected
-            pos = int(row["final_annotation.Position"]) - gene_starts[gene]
-            end = gene_ends[gene] - gene_starts[gene]
-            ref = row["final_annotation.ReferenceNucleotide"]
-            alt = row["final_annotation.AlternativeNucleotide"]
-            garc += to_garc(gene, pos, end, ref, alt)
-
-        # Convert to AA as appropriate if gene codes protein
-        if codes_protein[gene]:
-            aa_garc = []
-            for mutation in garc:
-                if "-" in mutation:
-                    # Promoter so skip
-                    aa_garc.append(mutation)
-                else:
-                    mutation = to_aa(reference_genome, mutation)
-                    aa_garc.append(mutation)
-            # Remove duplicates
-            garc = sorted(list(set([f"{i}" for i in aa_garc])))
-        else:
-            # Remove duplicates
-            garc = sorted(list(set([f"{i}" for i in garc])))
-        # print(garc)
-
+            garc += to_garc(reference, gene, int(pos), ref, alt, masks)
+        # if reference.genes[gene].reverse_complement:
+        # print(index, garc, gene, pos, ref, alt)
         for drug in drug_columns:
             col = row[drug]
             drug = drug.split("_")[0]
@@ -306,12 +287,7 @@ if __name__ == "__main__":
                 for mutation in sorted(drugs[drug][category]):
                     f.write(common + mutation + "," + category + ",{},{},{}\n")
             print({key: len(drugs[drug][key]) for key in drugs[drug].keys()})
-            synon_resist = len([m for m in drugs[drug]["R"] if "=" in m])
+            synon_resist = [m for m in drugs[drug]["R"] if "=" in m]
             print(synon_resist)
-            resist += synon_resist
             print()
-    # print(resist)
-    print(count)
-    print(count2)
     # print(garc)
-    # print(len([i for i in garc if "fs" in i]))
