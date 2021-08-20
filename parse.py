@@ -160,6 +160,16 @@ def to_garc(reference, gene, pos, ref, alt, masks):
         if len(ref) == len(alt):
             return snps(reference, gene, pos, ref, alt, masks)
         elif len(ref) > len(alt):
+            '''
+            Indels are weirder than I first thought, they don't always indicate a del/ins at the end of the seq
+                e.g. agctctagtg -> agtctagta has a `c` being deleted mid-seq (seq[2])
+            With this kind of mid-seq indel, it is not possible to determine which position an indel occurs at, especially as there are often SNPs too:
+                e.g:
+                    tccggtctg -> a is ambiguous as to which values are delted/SNPs so the positions reported could be wrong
+                    accg -> a is ambiguous as to if this is del(ccg) or del some other 3 bases and a SNP
+            Also, GARC does not have syntax to suport both insertions and deltions simaltaneously
+
+            '''
             #Del
             snp = snps(reference, gene, pos, ref, alt, masks)
             dels = [gene + "@" + str(((pos + (len(ref) - len(alt))) - reference.genes_lookup[gene]["start"])) + "_del_" + ref[len(alt):]]
@@ -171,6 +181,17 @@ def to_garc(reference, gene, pos, ref, alt, masks):
 
 
 def get_masks(reference, gene):
+    '''Find the numpy masks for the arrays within the reference genome for the specified gene.
+    The masks are used to speed up the instanciation of new Gene objects for SNP finding. Finding the masks
+        takes some time, so this is cached so the mask only has to be found once per gene rather than once per row
+    
+    Args:
+        reference (gumpy.Genome): Reference genome object
+        gene (str): Gene name
+    Returns:
+        (numpy.array, numpy.array): Tuple of 2 numpy arrays. First denotes the stacked mask for mutli-dimensional
+                                    attributes. Second denotes the mask for 1D attributes
+    '''
     #The mask for all stacked arrays (N-dim)
     stacked_mask = reference.stacked_gene_name == gene
     #The mask for singular arrays (1-dim) by collapsing stacked mask to 1-dim
@@ -187,7 +208,7 @@ if __name__ == "__main__":
     #The catalogue is grouped by gene, so we can store gene masks until they are no longer required
     masks = {}
 
-    #Setuo details for drugs
+    #Setup details for drugs
     drug_columns = [
         'RIF_Conf_Grade',
         'INH_Conf_Grade',
@@ -209,7 +230,7 @@ if __name__ == "__main__":
             "R": set(),
             "U": set(),
             "S": set(),
-            "?": set()} for drug in drug_columns}
+            "F": set()} for drug in drug_columns}
 
     #Iterate over the catalogue
     for (index, row) in data.iterrows():
@@ -254,30 +275,24 @@ if __name__ == "__main__":
             category = None
             if pd.isnull(col):
                 continue
-            if "1)" in col or "2)" in col:
+            if "1)" in col:
                 # Resistance
                 category = "R"
             elif "3)" in col:
                 # Uncertain
                 category = "U"
-            elif "4)" in col or "5)" in col:
+            elif "2)" in col or "4)" in col or "5)" in col or col == "Synonymous":
                 # Not resistant
                 category = "S"
             else:
-                category = "?"
+                category = "F"
 
-            # Check for indels first
-            if len([m for m in garc if "ins" in m or "del" in m]) > 0:
-                for m in [m for m in garc if "ins" in m or "del" in m]:
-                    drugs[drug][category].add(m)
-            else:
-                # No indels, so just add all
-                for mutation in garc:
-                    drugs[drug][category].add(mutation)
+            for mutation in garc:
+                drugs[drug][category].add(mutation)
 
     with open("output.csv", "w") as f:
         header = "GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,PREDICTION_VALUES,DRUG,MUTATION,PREDICTION,SOURCE,EVIDENCE,OTHER\n"
-        common_all = "NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RSU?,"
+        common_all = "NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RSUF,"
         f.write(header)
         resist = 0
         for drug in drugs.keys():
@@ -287,7 +302,7 @@ if __name__ == "__main__":
                 for mutation in sorted(drugs[drug][category]):
                     f.write(common + mutation + "," + category + ",{},{},{}\n")
             print({key: len(drugs[drug][key]) for key in drugs[drug].keys()})
-            synon_resist = [m for m in drugs[drug]["R"] if "=" in m]
+            synon_resist = len([m for m in drugs[drug]["R"] if "=" in m])
             print(synon_resist)
             print()
     # print(garc)
