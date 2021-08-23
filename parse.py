@@ -2,6 +2,7 @@ import pandas as pd
 import gumpy, numpy
 
 count = 0
+snp_count = []
 def parse_who_catalog(filename):
     '''Parses the WHO TB catalog
 
@@ -77,19 +78,25 @@ def rev_comp(reference, gene, pos, ref, alt, masks):
     Returns:
         list(str): List of mutations in GARC
     '''
+    global count
+    global snp_count
     if len(ref) == len(alt):
         #SNP so convert to AA too
         return rev_comp_snp(reference, gene, pos, ref, alt, masks)
     elif len(ref) > len(alt):
         #Del
-        snps = rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        snp = rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        count += 1
+        snp_count.append(snp)
         dels = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(ref) - len(alt))))) + "_del_" + "".join(gumpy.Gene._complement(list(ref[len(alt):])))]
-        return dels + snps
+        return dels + snp
     elif len(ref) < len(alt):
         #Ins
-        snps = rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        snp = rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        count += 1
+        snp_count.append(snp)
         ins = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(alt) - len(ref))))) + "_ins_" + "".join(gumpy.Gene._complement(list(alt[len(ref):])))]
-        return ins + snps
+        return ins + snp
 
 def snps(reference, gene, pos, ref, alt, masks):
     '''Convert a mutation into the appropriate number of SNPs in GARC, converting to amino acids as required
@@ -141,6 +148,47 @@ def snps(reference, gene, pos, ref, alt, masks):
                 mutations.append(gene + "@" + r + str(pos_) + a)
     return mutations
 
+class filterList(list):
+    def __eq__(self, other):
+        if len(self) != len(other):
+            # print("Different lengths")
+            return False
+        check = True
+        for (x, y) in zip(self, other):
+            if x is not None and y is not None:
+                #Ignore None values
+                check = check and x == y
+        return check
+
+
+def del_calls(ref, alt, added=0):
+    '''Deal with del calls. Attempts to identify dels mid-sequence. If a repeated base is deleted (aaa->aa), it is assumed
+        that the first base is deleted.
+    
+    Args:
+        ref (list): Reference bases
+        alt (list): Alternative bases
+        added (int, optional): Number of blanks added to check for mid-seq dels
+    Returns:
+        list(str): List of mutations in GARC
+    '''
+    print(ref, alt, len(ref), len(alt), added)
+    input("?")
+    if len(ref) == len(alt):
+        return ref, alt
+    for index in range(len(ref)):
+        if index < len(alt) and ref[index] != alt[index]:
+            if len(alt) >= len(ref):
+                #Definitely not a mid-seq del
+                return [], []
+            #The bases differ, so check if this was a mid-seq del
+            alt.insert(index, None)
+    if len(ref) != len(alt) and added < 3:
+        ref, alt = del_calls(ref, alt, added=added+1)
+    return ref, alt
+
+
+
 def to_garc(reference, gene, pos, ref, alt, masks):
     '''Convert to GARC
 
@@ -152,6 +200,8 @@ def to_garc(reference, gene, pos, ref, alt, masks):
     Returns:
         list(str): List of mutations in GARC
     '''
+    global count
+    global snp_count
     #Reverse complement genes need some alterations
     if reference.genes[gene].reverse_complement:
         return rev_comp(reference, gene, pos, ref, alt, masks)
@@ -172,10 +222,15 @@ def to_garc(reference, gene, pos, ref, alt, masks):
             '''
             #Del
             snp = snps(reference, gene, pos, ref, alt, masks)
+            count += 1
+            snp_count.append(snp)
+            dels = del_calls(filterList(ref), filterList(alt))
             dels = [gene + "@" + str(((pos + (len(ref) - len(alt))) - reference.genes_lookup[gene]["start"])) + "_del_" + ref[len(alt):]]
             return snp + dels
         elif len(ref) < len(alt):
-            snp = snps(reference, gene, pos, ref, alt, masks)       
+            snp = snps(reference, gene, pos, ref, alt, masks)  
+            count += 1
+            snp_count.append(snp)     
             ins = [gene + "@" + str(((pos + (len(alt) - len(ref))) - reference.genes_lookup[gene]["start"])) + "_ins_" + alt[len(ref):]]     
             return ins + snp
 
@@ -302,7 +357,16 @@ if __name__ == "__main__":
                 for mutation in sorted(drugs[drug][category]):
                     f.write(common + mutation + "," + category + ",{},{},{}\n")
             print({key: len(drugs[drug][key]) for key in drugs[drug].keys()})
+            print({key: len(drugs[drug]["R"].intersection(drugs[drug][key])) 
+            for key in drugs[drug].keys() 
+            if key != "R" and len(drugs[drug]["R"].intersection(drugs[drug][key])) > 0 })
             synon_resist = len([m for m in drugs[drug]["R"] if "=" in m])
             print(synon_resist)
             print()
     # print(garc)
+    print("Total indel: ", count)
+    print("Total with SNPs: ", len([i for i in snp_count if len(i)>0]))
+    print("Max SNPs: ", max([len(i) for i in snp_count]))
+    print("Mean SNPs: ", sum([len(i) for i in snp_count])/len([i for i in snp_count if len(i)>0]))
+    print("Median SNPs: ", sorted([len(i) for i in snp_count if len(i) > 0])[len([i for i in snp_count if len(i)>0])//2])
+    print(sorted([len(i) for i in snp_count if len(i)>0]))
