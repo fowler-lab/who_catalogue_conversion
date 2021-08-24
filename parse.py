@@ -30,7 +30,7 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
     mutations = []
     ref_seq = reference.nucleotide_sequence.copy()
     for (index, (r, a)) in enumerate(zip(ref, alt)):
-        if r != a:
+        if r is not None and a is not None and r != a:
             if (pos + index) - reference.genes_lookup[gene]["start"] <= 0:
                 #Past the end of the gene so just return
                 return mutations
@@ -85,18 +85,20 @@ def rev_comp(reference, gene, pos, ref, alt, masks):
         return rev_comp_snp(reference, gene, pos, ref, alt, masks)
     elif len(ref) > len(alt):
         #Del
-        snp = rev_comp_snp(reference, gene, pos, ref, alt, masks)
-        count += 1
-        snp_count.append(snp)
-        dels = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(ref) - len(alt))))) + "_del_" + "".join(gumpy.Gene._complement(list(ref[len(alt):])))]
-        return dels + snp
+        # snp = rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        # count += 1
+        # snp_count.append(snp)
+        dels = del_calls(reference, gene, pos, ref, alt, masks, rev_comp=True)
+        # dels = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(ref) - len(alt))))) + "_del_" + "".join(gumpy.Gene._complement(list(ref[len(alt):])))]
+        return dels
     elif len(ref) < len(alt):
         #Ins
-        snp = rev_comp_snp(reference, gene, pos, ref, alt, masks)
-        count += 1
-        snp_count.append(snp)
-        ins = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(alt) - len(ref))))) + "_ins_" + "".join(gumpy.Gene._complement(list(alt[len(ref):])))]
-        return ins + snp
+        # snp = rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        # count += 1
+        # snp_count.append(snp)
+        ins = ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=True)
+        # ins = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(alt) - len(ref))))) + "_ins_" + "".join(gumpy.Gene._complement(list(alt[len(ref):])))]
+        return ins
 
 def snps(reference, gene, pos, ref, alt, masks):
     '''Convert a mutation into the appropriate number of SNPs in GARC, converting to amino acids as required
@@ -114,7 +116,7 @@ def snps(reference, gene, pos, ref, alt, masks):
     mutations = []
     ref_seq = reference.nucleotide_sequence.copy()
     for (index, (r, a)) in enumerate(zip(ref, alt)):
-        if r != a:
+        if r is not None and a is not None and r != a:
             if reference.genes_lookup[gene]["end"] - (pos + index) <= 0:
                 #Past the end of the gene so just return
                 return mutations
@@ -148,45 +150,266 @@ def snps(reference, gene, pos, ref, alt, masks):
                 mutations.append(gene + "@" + r + str(pos_) + a)
     return mutations
 
-class filterList(list):
+
+class fuzzyList(list):
     def __eq__(self, other):
+        '''Equality with some fuzzy behaviour as some SNPs will be tolerated
+
+        Args:
+            other (fuzzyList): Other list to compare against
+
+        Returns:
+            bool: True when there are less than a given threshold differences
+        '''        
         if len(self) != len(other):
-            # print("Different lengths")
             return False
-        check = True
-        for (x, y) in zip(self, other):
-            if x is not None and y is not None:
-                #Ignore None values
-                check = check and x == y
-        return check
+        count = 0
+        #Tolerate at most 1 SNP (but adjust to 0 if there is only 1 base remaining)
+        THRESHOLD = min(2, len(self)-1)
+        for (a, b) in zip(self, other):
+            if a is not None and b is not None and a != b:
+                count += 1
+        return count <= THRESHOLD
 
-
-def del_calls(ref, alt, added=0):
-    '''Deal with del calls. Attempts to identify dels mid-sequence. If a repeated base is deleted (aaa->aa), it is assumed
-        that the first base is deleted.
+def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
+    '''Deal with del calls. Attempts to identify dels mid-sequence, but will only work with del_1. 
+        If a repeated base is deleted (aaa->aa), it is assumed that the last base is deleted.
     
     Args:
+        reference (gumpy.Genome): Reference genome object
+        gene (str): Gene name
+        pos (int): Genome position
         ref (list): Reference bases
         alt (list): Alternative bases
-        added (int, optional): Number of blanks added to check for mid-seq dels
+        masks (dict): Dictionary of gene_name->(stacked_mask, mask)
+        rev_comp (bool, optional): Flag to determine if reverse complement. Defaults to False
     Returns:
         list(str): List of mutations in GARC
     '''
-    print(ref, alt, len(ref), len(alt), added)
-    input("?")
-    if len(ref) == len(alt):
-        return ref, alt
-    for index in range(len(ref)):
-        if index < len(alt) and ref[index] != alt[index]:
-            if len(alt) >= len(ref):
-                #Definitely not a mid-seq del
-                return [], []
-            #The bases differ, so check if this was a mid-seq del
-            alt.insert(index, None)
-    if len(ref) != len(alt) and added < 3:
-        ref, alt = del_calls(ref, alt, added=added+1)
-    return ref, alt
+    #Del has len(alt) < len(ref)
+    del_len = len(ref) - len(alt)
+    current = None
+    current_snps = 999
+    start = 0
+    ref1 = list(ref)
+    #Iterate through the positions at which the ins could occur, checking which has the lowest overall SNPs
+    for x in range(len(alt)+1):
+        alt1 = [alt[i] for i in range(x)]+[None for i in range(del_len)]+[alt[i] for i in range(x, len(alt))]
+        if snp_number(ref1, alt1) < current_snps:
+            current = alt1
+            current_snps = snp_number(ref1, alt1)
+            start = x
+    #Position with the best SNPs is the best position for the ins
+    seq = [ref[i] for i in range(len(current)) if current[i] is None]
+    if rev_comp:
+        p = reference.genes_lookup[gene]["end"] - (pos + start)
+        r = ''.join(gumpy.Gene._complement(seq))
+        snp = rev_comp_snp(reference, gene, pos, ref, current, masks)
+        if p > reference.genes_lookup[gene]["end"]:
+            #Del happened past the 3' end of the gene so ignore it
+            return snp
+    else:
+        p = pos - reference.genes_lookup[gene]["start"] + start
+        r = ''.join(seq)
+        snp = snps(reference, gene, pos, ref, current, masks)
+        if p > reference.genes_lookup[gene]["end"]:
+            #If the del happened past the 3' end of the gene, ignore it
+            return snp
+    # start = [i for i in range(len(current)) if current[i] is None][0]
+    # print("DEL")
+    # print(ref)
+    # print(alt)
+    # print(ref1)
+    # print([i if i is not None else '-' for i in current])
+    # print(snp + [gene + "@" + str(p) + "_del_" + r])
+    # print(current_snps)
+    # print()
+    return snp + [gene + "@" + str(p) + "_del_" + r]
 
+    mutations = []
+    snp = []
+    offset = 0
+    done = False
+    start = -1
+    # if len(ref) - len(alt) == 1:
+    #Finding mid-seq dels only works with dels of length 1
+    for index in range(len(ref)):
+        if reference.nucleotide_sequence[pos+index-1] != ref[index]:
+            print(gene, pos, ref[index], alt[index], reference.nucleotide_sequence[pos+index-1])
+        if index + offset < len(alt) and ref[index] != alt[index + offset]:
+            #Either a SNP or a mid-seq del
+            if fuzzyList([None for i in range(len(ref)-len(alt))]+list(alt[index+offset:])) == fuzzyList(ref[index::]):
+            # if fuzzyList(ref[index+1:]) == fuzzyList(alt[index + offset:]):
+                #If remaining sequence matches, mid-seq del of 1 base
+                #Alter to be a gene index + offset
+                if not rev_comp:
+                    p = pos - reference.genes_lookup[gene]["start"] + index
+                    r = ref[index:index+len(ref)-len(alt)]
+                else:
+                    p = reference.genes_lookup[gene]["end"] - (pos + index)
+                    r = ''.join(gumpy.Gene._complement(list(ref[index:index+len(ref)-len(alt)])))
+                mutations.append(gene + "@" + str(p) + "_del_" + r)
+                # for i in range(len(ref)-len(alt)):
+                #     snp.append([None, None])
+                start = index
+                break
+        #     else:
+        #         #SNP
+        #         snp.append([ref[index], alt[index + offset]])
+        # else:
+        #     snp.append([None, None])
+    if len(mutations) > 0:
+        #Mid-seq dels have been detected so check for SNPs and return
+        # print("Midseq_del")
+        # print(ref)
+        # print(alt)
+        #Find the SNPs
+        ref1 = list(ref)
+        alt1 = [alt[i] for i in range(start)]+[None for i in range(len(ref)-len(alt))]+[alt[i] for i in range(start, len(alt))]
+        # print([i if i is not None else '-' for i in ref1])
+        # print([i if i is not None else '-' for i in alt1])
+        if rev_comp:
+            snp = rev_comp_snp(reference, gene, pos, ref1, alt1, masks)
+        else:
+            snp = snps(reference, gene, pos, ref1, alt1, masks)
+
+    else:
+        #No mid-seq dels, so default to the del at the end of the seq
+        # print("End_del")
+        # print(ref)
+        # print(alt)
+        if rev_comp:
+            mutations = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(ref) - len(alt))))) + "_del_" + "".join(gumpy.Gene._complement(list(ref[len(alt):])))]
+            snp = rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        else:
+            mutations = [gene + "@" + str(((pos + (len(ref) - len(alt))) - reference.genes_lookup[gene]["start"])) + "_del_" + ref[len(alt):]]
+            snp = snps(reference, gene, pos, ref, alt, masks)
+
+    return mutations + snp
+
+def snp_number(ref, alt):       
+    '''Helper function to find the SNP distance between two arrays, ignoring None values
+
+    Args:
+        ref (list): List of bases
+        alt (list): List of bases
+
+    Returns:
+        int: SNP distance ignoring None values
+    '''    
+    snps = 0
+    for (a, b) in zip(ref, alt):
+        if a is not None and b is not None and a != b:
+            snps += 1
+    return snps
+
+def ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
+    '''Deal with ins calls. Attempts to detect mid-sequence insertions.
+        If a repeated base has an insertion, it is assumed that the insertion occured at last base (`aa`->`aaa` infers ins @ seq[1])
+
+    Args:
+        reference (gumpy.Genome): Reference Genome object
+        gene (str): Gene name
+        pos (int): Genome index
+        ref (str): Reference bases
+        alt (str): Alternative bases
+        masks (dict): Dictionary of gene_name->(stacked_mask, mask)
+        rev_comp (bool, optional): Flag to show if the gene is reverse complement. Defaults to False
+    Returns:
+        list(str): List of mutations in GARC
+    '''    
+    #Ins has len(ref) < len(alt)
+    ins_len = len(alt) - len(ref)
+    current = None
+    current_snps = 999
+    start = 0
+    alt1 = list(alt)
+    #Iterate through the positions at which the ins could occur, checking which has the lowest overall SNPs
+    for x in range(len(ref)+1):
+        ref1 = [ref[i] for i in range(x)]+[None for i in range(ins_len)]+[ref[i] for i in range(x, len(ref))]
+        if snp_number(ref1, alt1) < current_snps:
+            current = ref1
+            current_snps = snp_number(ref1, alt1)
+            start = x
+    #Position with the best SNPs is the best position for the ins
+    seq = [alt[i] for i in range(len(current)) if current[i] is None]
+    if rev_comp:
+        p = reference.genes_lookup[gene]["end"] - (pos + start)
+        a = ''.join(gumpy.Gene._complement(seq))
+        snp = rev_comp_snp(reference, gene, pos, current, alt, masks)
+        if p > reference.genes_lookup[gene]["start"]:
+            #Past the 3' end so ignore
+            return snp
+    else:
+        p = pos - reference.genes_lookup[gene]["start"] + start
+        a = ''.join(seq)
+        snp = snps(reference, gene, pos, current, alt, masks)
+        if p > reference.genes_lookup[gene]["end"]:
+            #Past the 3' end so ignore
+            return snp
+    # start = [i for i in range(len(current)) if current[i] is None][0]
+    # print("INS")
+    # print(ref)
+    # print(alt)
+    # print([i if i is not None else '-' for i in current])
+    # print(alt1)
+    # print(snp + [gene + "@" + str(p) + "_ins_" + a])
+    # print(current_snps)
+    # print()
+    return snp + [gene + "@" + str(p) + "_ins_" + a]
+
+
+
+
+    mutations = []
+    snp = []
+    offset = 0
+    # if len(alt) - len(ref) == 1:
+    #Checking for single base 
+    for index in range(len(alt)):
+        if index + offset < len(ref) and ref[index + offset] != alt[index]:
+            #Either an SNP or a mid-seq ins
+            if fuzzyList([None for i in range(len(alt)-len(ref))]+list(ref[index+offset:])) == fuzzyList(alt[index::]):
+            # if fuzzyList(ref[index+offset:]) == fuzzyList(alt[index+1:]):
+                #Mid-seq ins
+                if not rev_comp:
+                    p = pos - reference.genes_lookup[gene]["start"] + index
+                    a = alt[index:index+len(alt)-len(ref)]
+                else:
+                    p = reference.genes_lookup[gene]["end"] - (pos + index)
+                    a = ''.join(gumpy.Gene._complement(list(alt[index:index+len(alt)-len(ref)])))
+                mutations.append(gene + "@" + str(p) + "_ins_" + a)
+                for i in range(len(alt)-len(ref)):
+                    snp.append([None, None])
+                offset -= len(alt)-len(ref)
+            else:
+                #SNP
+                snp.append([ref[index+offset], alt[index]])
+        else:
+            snp.append([None, None])
+    if len(mutations) > 0:
+        #Mid-seq ins have been detected so check for SNPs and return
+        # print("Midseq_ins")
+        # print(ref)
+        # print(alt)
+        ref1 = [i[0] for i in snp]
+        alt1 = [i[1] for i in snp]
+        if rev_comp:
+            snp = rev_comp_snp(reference, gene, pos, ref1, alt1, masks)
+        else:
+            snp = snps(reference, gene, pos, ref1, alt1, masks)
+    else:
+        #No mid-seq ins detected so assume ins at the end
+        # print("End_ins")
+        # print(ref)
+        # print(alt)
+        if rev_comp:
+            mutations = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(alt) - len(ref))))) + "_ins_" + "".join(gumpy.Gene._complement(list(alt[len(ref):])))]
+            snp = rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        else:
+            mutations = [gene + "@" + str(((pos + (len(alt) - len(ref))) - reference.genes_lookup[gene]["start"])) + "_ins_" + alt[len(ref):]]     
+            snp = snps(reference, gene, pos, ref, alt, masks)
+    return mutations + snp
 
 
 def to_garc(reference, gene, pos, ref, alt, masks):
@@ -197,6 +420,7 @@ def to_garc(reference, gene, pos, ref, alt, masks):
         pos (int): Genome index
         ref (str): Reference base(s)
         alt (str): Mutant base(s)
+        masks (dict): Dictionary of gene_name->(stacked_mask, mask)
     Returns:
         list(str): List of mutations in GARC
     '''
@@ -221,18 +445,18 @@ def to_garc(reference, gene, pos, ref, alt, masks):
 
             '''
             #Del
-            snp = snps(reference, gene, pos, ref, alt, masks)
-            count += 1
-            snp_count.append(snp)
-            dels = del_calls(filterList(ref), filterList(alt))
-            dels = [gene + "@" + str(((pos + (len(ref) - len(alt))) - reference.genes_lookup[gene]["start"])) + "_del_" + ref[len(alt):]]
-            return snp + dels
+            # snp = snps(reference, gene, pos, ref, alt, masks)
+            # count += 1
+            # snp_count.append(snp)
+            dels = del_calls(reference, gene, pos, ref, alt, masks)
+            # dels = [gene + "@" + str(((pos + (len(ref) - len(alt))) - reference.genes_lookup[gene]["start"])) + "_del_" + ref[len(alt):]]
+            return dels
         elif len(ref) < len(alt):
-            snp = snps(reference, gene, pos, ref, alt, masks)  
-            count += 1
-            snp_count.append(snp)     
-            ins = [gene + "@" + str(((pos + (len(alt) - len(ref))) - reference.genes_lookup[gene]["start"])) + "_ins_" + alt[len(ref):]]     
-            return ins + snp
+            ins = ins_calls(reference, gene, pos, ref, alt, masks)  
+            # count += 1
+            # snp_count.append(snp)     
+            # ins = [gene + "@" + str(((pos + (len(alt) - len(ref))) - reference.genes_lookup[gene]["start"])) + "_ins_" + alt[len(ref):]]     
+            return ins
 
 
 def get_masks(reference, gene):
@@ -324,6 +548,9 @@ if __name__ == "__main__":
             garc += to_garc(reference, gene, int(pos), ref, alt, masks)
         # if reference.genes[gene].reverse_complement:
         # print(index, garc, gene, pos, ref, alt)
+        # if True in ["_del_" in i or "_ins_" in i for i in garc]:
+        #     print(garc)
+        #     print()
         for drug in drug_columns:
             col = row[drug]
             drug = drug.split("_")[0]
@@ -364,9 +591,9 @@ if __name__ == "__main__":
             print(synon_resist)
             print()
     # print(garc)
-    print("Total indel: ", count)
-    print("Total with SNPs: ", len([i for i in snp_count if len(i)>0]))
-    print("Max SNPs: ", max([len(i) for i in snp_count]))
-    print("Mean SNPs: ", sum([len(i) for i in snp_count])/len([i for i in snp_count if len(i)>0]))
-    print("Median SNPs: ", sorted([len(i) for i in snp_count if len(i) > 0])[len([i for i in snp_count if len(i)>0])//2])
-    print(sorted([len(i) for i in snp_count if len(i)>0]))
+    # print("Total indel: ", count)
+    # print("Total with SNPs: ", len([i for i in snp_count if len(i)>0]))
+    # print("Max SNPs: ", max([len(i) for i in snp_count]))
+    # print("Mean SNPs: ", sum([len(i) for i in snp_count])/len([i for i in snp_count if len(i)>0]))
+    # print("Median SNPs: ", sorted([len(i) for i in snp_count if len(i) > 0])[len([i for i in snp_count if len(i)>0])//2])
+    # print(sorted([len(i) for i in snp_count if len(i)>0]))
