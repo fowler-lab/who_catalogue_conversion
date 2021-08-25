@@ -9,6 +9,7 @@ Using a sliding window, the indel is placed in the position which causes the lea
 
 If there are repeating sections which are ambiguous, the first item is chosen as the indel position. E.g. `aaa`->`aaaa` has an insertion at `seq[0]`
 
+As long as there is a single indel within the sequence, this works. More than 1 indel in a sequence has not been observed
 
 ## Requirements
 Requires [gumpy](https://github.com/oxfordmmm/gumpy "gumpy") for finding amino acid changes.

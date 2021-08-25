@@ -29,7 +29,7 @@ def generalise(mutation):
             else:
                 fs = []
             return fs + [
-                mutation,
+                # mutation,
                 gene_name + "@" + pos + "_indel",
                 gene_name + "@" + pos + "_ins",
                 gene_name + "@" + pos + "_ins_" + str(len(bases)),
@@ -44,7 +44,7 @@ def generalise(mutation):
             else:
                 fs = []
             return fs + [
-                mutation,
+                # mutation,
                 gene_name + "@" + pos + "_indel",
                 gene_name + "@" + pos + "_del",
                 gene_name + "@" + pos + "_del_" + str(len(bases)),
