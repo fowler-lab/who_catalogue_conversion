@@ -27,17 +27,21 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
     '''
     mutations = []
     ref_seq = reference.nucleotide_sequence.copy()
+    offset = 0
     for (index, (r, a)) in enumerate(zip(ref, alt)):
+        if r is None or a is None:
+            offset += 1
+            continue
         if r is not None and a is not None and r != a:
-            if (pos + index) - reference.genes_lookup[gene]["start"] <= 0:
+            if (pos + index - offset) - reference.genes_lookup[gene]["start"] <= 0:
                 #Past the end of the gene so just return
                 return mutations
-            if reference.genes_lookup[gene]["end"] - (pos + index) < 0 or reference.genes[gene].codes_protein == False:
+            if reference.genes_lookup[gene]["end"] - (pos + index - offset) < 0 or reference.genes[gene].codes_protein == False:
                 #Promoter or non-coding so return the difference in nucleotides
                 r,a  = gumpy.Gene._complement([r, a])
-                mutations.append(gene + "@" + r + str(reference.genes_lookup[gene]["end"] - (pos + index)) + a)
+                mutations.append(gene + "@" + r + str(reference.genes_lookup[gene]["end"] - (pos + index - offset)) + a)
             else:
-                ref_seq[pos + index - 1] = a
+                ref_seq[pos + index - offset - 1] = a
     if reference.genes[gene].codes_protein:
         stacked_mask, mask = masks[gene]
 
@@ -78,16 +82,20 @@ def snps(reference, gene, pos, ref, alt, masks):
     '''
     mutations = []
     ref_seq = reference.nucleotide_sequence.copy()
+    offset = 0
     for (index, (r, a)) in enumerate(zip(ref, alt)):
+        if r is None or a is None:
+            offset += 1
+            continue
         if r is not None and a is not None and r != a:
-            if reference.genes_lookup[gene]["end"] - (pos + index) <= 0:
+            if reference.genes_lookup[gene]["end"] - (pos + index - offset) <= 0:
                 #Past the end of the gene so just return
                 return mutations
-            if (pos + index) - reference.genes_lookup[gene]["start"] < 0 or reference.genes[gene].codes_protein == False:
+            if (pos + index - offset) - reference.genes_lookup[gene]["start"] < 0 or reference.genes[gene].codes_protein == False:
                 #Promoter or non-coding so return the difference in nucleotides
-                mutations.append(gene + "@" + r + str((pos + index) - reference.genes_lookup[gene]["start"]) + a)
+                mutations.append(gene + "@" + r + str((pos + index - offset) - reference.genes_lookup[gene]["start"]) + a)
             else:
-                ref_seq[pos + index - 1] = a
+                ref_seq[pos + index - offset - 1] = a
     if reference.genes[gene].codes_protein:
         stacked_mask, mask = masks[gene]
 
