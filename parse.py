@@ -1,5 +1,12 @@
+import functools
+import re
+import sys
+
+import numpy
 import pandas as pd
-import gumpy, numpy
+
+import gumpy
+
 
 def parse_who_catalog(filename):
     '''Parses the WHO TB catalog
@@ -259,7 +266,9 @@ def to_garc(reference, gene, pos, ref, alt, masks):
                 tccggtctg -> a is ambiguous as to which values are delted/SNPs so the positions reported could be wrong
                 accg -> a is ambiguous as to if this is del(ccg) or del some other 3 bases and a SNP
         Also, GARC does not have syntax to suport both insertions and deltions simaltaneously
-
+        In order to make some sense of this, the indel is selected based on where in the sequence it causes the least SNPs. If there are
+        repeating sequences as detailed above, the first one is selected. This is not a perfect solution, but allows some form of standardisation
+        with the least possible mutations from a single row.
         '''
         #Del
         return del_calls(reference, gene, pos, ref, alt, masks, rev_comp=rev_comp)
@@ -285,6 +294,52 @@ def get_masks(reference, gene):
     #The mask for singular arrays (1-dim) by collapsing stacked mask to 1-dim
     mask = numpy.any(stacked_mask, axis=0)
     return stacked_mask, mask
+
+def generalise(mutation):
+    '''Takes a mutation in GARC and produces a list of generalised mutations
+
+    Args:
+        mutation (str): Mutation
+    Returns:
+        list(str): List of generalised versions of mutations
+    '''
+    if re.compile(
+            r"([a-zA-Z0-9]+)@((-?\d+=)|([acgtA-Z!])(-?\d+)([actgA-Z!]))").fullmatch(mutation):
+        # SNP so no generalisation required
+        return [mutation]
+    else:
+        if "ins" in mutation:
+            # Of the form gene@pos_ins_bases
+            gene_name = mutation.split("@")[0]
+            pos, ins, bases = mutation.split("@")[1].split("_")
+            if len(bases) % 3 != 0:
+                # Frame shift
+                fs = [gene_name + "@" + pos + "_fs"]
+            else:
+                fs = []
+            items =  fs + [
+                mutation,
+                gene_name + "@" + pos + "_indel",
+                gene_name + "@" + pos + "_ins",
+                gene_name + "@" + pos + "_ins_" + str(len(bases)),
+            ]
+        elif "del" in mutation:
+            # Of the form gene@pos_del_bases
+            gene_name = mutation.split("@")[0]
+            pos, del_, bases = mutation.split("@")[1].split("_")
+            if len(bases) % 3 != 0:
+                # Frame shift
+                fs = [gene_name + "@" + pos + "_fs"]
+            else:
+                fs = []
+            items =  fs + [
+                mutation,
+                gene_name + "@" + pos + "_indel",
+                gene_name + "@" + pos + "_del",
+                gene_name + "@" + pos + "_del_" + str(len(bases)),
+            ]
+        # items = [i for i in items if i not in seen]
+        return items
 
 if __name__ == "__main__":
     #Load the reference genome
@@ -318,8 +373,8 @@ if __name__ == "__main__":
             "R": set(),
             "U": set(),
             "S": set(),
-            "F": set()} for drug in drug_columns}
-
+            # "F": set()
+            } for drug in drug_columns}
     #Iterate over the catalogue
     for (index, row) in data.iterrows():
         garc = []
@@ -328,7 +383,7 @@ if __name__ == "__main__":
         if masks.get(gene) is None:
             #Cache the masks
             masks = {gene: get_masks(reference, gene)}
-        pos = str(row["final_annotation.Position"])
+        pos = str(row["final_annotation.Position"])#Cast to a str for str.split(',')
         ref = row["final_annotation.ReferenceNucleotide"]
         alt = row["final_annotation.AlternativeNucleotide"]
 
@@ -355,6 +410,37 @@ if __name__ == "__main__":
                 raise Exception("Weird format: "+ref+", "+alt)
         else:
             garc += to_garc(reference, gene, int(pos), ref, alt, masks)
+        if True in [m in 
+                    {'rpoB@1296_ins_ttc', 'pncA@317_del_t', 'pncA@394_del_gctggtgta', 'pncA@391_ins_gg', 
+                    'pncA@-4_del_g', 'pncA@456_ins_c', 'pncA@389_del_tgta', 'eis@c-13t', 'gid@102_del_g', 
+                    'gid@351_del_g', 'ethA@110_del_a'} 
+                    for m in garc]:
+            print(ref)
+            print(alt)
+            print(garc)
+            for drug in drug_columns:
+                col = row[drug]
+                drug = drug.split("_")[0]
+                category = None
+                if pd.isnull(col):
+                    continue
+                if "1)" in col:
+                    # Resistance
+                    category = "R"
+                elif "3)" in col:
+                    # Uncertain
+                    category = "U"
+                elif "2)" in col or "4)" in col or "5)" in col or col == "Synonymous":
+                    # Not resistant
+                    category = "S"
+                else:
+                    category = "F"
+                print(drug)
+                print(category)
+            print()
+        if "generalise" in sys.argv:
+            #Produce more general cases such as gene@pos_indel if a flag is given
+            garc = functools.reduce(lambda x, y: x + y, [generalise(g) for g in garc], [])
         for drug in drug_columns:
             col = row[drug]
             drug = drug.split("_")[0]
@@ -370,27 +456,42 @@ if __name__ == "__main__":
             elif "2)" in col or "4)" in col or "5)" in col or col == "Synonymous":
                 # Not resistant
                 category = "S"
-            else:
-                category = "F"
+            # else:
+                # category = "F"
 
             for mutation in garc:
                 drugs[drug][category].add(mutation)
 
+
+            
+            
+
     with open("output.csv", "w") as f:
         header = "GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,PREDICTION_VALUES,DRUG,MUTATION,PREDICTION,SOURCE,EVIDENCE,OTHER\n"
-        common_all = "NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RSUF,"
+        common_all = "NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,"
         f.write(header)
         resist = 0
         for drug in drugs.keys():
             print(drug)
             common = common_all + drug + ","
             for category in drugs[drug].keys():
-                for mutation in sorted(drugs[drug][category]):
+                #As there are some mutations which are R and another category,
+                #just assume that they belong to R so piezo can parse the catalogue.
+                m = drugs[drug][category]
+                for c in drugs[drug].keys():
+                    if c != category:
+                        m = m.difference(drugs[drug][c])
+                mutations = sorted(list(m))
+                # if category != "R":
+                #     mutations = sorted(list(drugs[drug][category].difference(drugs[drug]["R"])))
+                # else:
+                #     mutations = sorted(list(drugs[drug][category]))
+                for mutation in mutations:
                     f.write(common + mutation + "," + category + ",{},{},{}\n")
-            print({key: len(drugs[drug][key]) for key in drugs[drug].keys()})
-            print({key: len(drugs[drug]["R"].intersection(drugs[drug][key])) 
+            # print({key: len(drugs[drug][key]) for key in drugs[drug].keys()})
+            print({key: drugs[drug]["R"].intersection(drugs[drug][key])
             for key in drugs[drug].keys() 
             if key != "R" and len(drugs[drug]["R"].intersection(drugs[drug][key])) > 0 })
             synon_resist = len([m for m in drugs[drug]["R"] if "=" in m])
-            print(synon_resist)
+            # print(synon_resist)
             print()
