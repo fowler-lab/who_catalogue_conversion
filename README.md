@@ -19,5 +19,4 @@ Due to the unstable nature of the grammar used within the catalogue, it is simpl
 ```
 python parse.py
 ```
-This produces `output.csv` which is of a similar format to the catalogues ingested by piezo, but can be generalised (`python parse.py generalise`) to denote less specific mutations e.g `Rv2752c@1579_del_gccta` could become `Rv2752@1579_indel`.
-This is closer to the style mutations are denoted within [existing piezo catalogues](https://github.com/oxfordmmm/tuberculosis_amr_catalogues "existing piezo catalogues").
+This produces `output.csv` which is of a similar format to the catalogues ingested by piezo. This lacks the generalised rules which occur in some of the mutations denoted within [existing piezo catalogues](https://github.com/oxfordmmm/tuberculosis_amr_catalogues "existing piezo catalogues").

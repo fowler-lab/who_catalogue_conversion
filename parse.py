@@ -1,7 +1,3 @@
-import functools
-import re
-import sys
-
 import numpy
 import pandas as pd
 
@@ -40,15 +36,15 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
             offset += 1
             continue
         if r is not None and a is not None and r != a:
-            if (pos + index - offset) - reference.genes_lookup[gene]["start"] <= 0:
+            if (pos + index) - reference.genes_lookup[gene]["start"] <= 0:
                 #Past the end of the gene so just return
                 return mutations
-            if reference.genes_lookup[gene]["end"] - (pos + index - offset) < 0 or reference.genes[gene].codes_protein == False:
+            if reference.genes_lookup[gene]["end"] - (pos + index) < 0 or reference.genes[gene].codes_protein == False:
                 #Promoter or non-coding so return the difference in nucleotides
                 r,a  = gumpy.Gene._complement([r, a])
-                mutations.append(gene + "@" + r + str(reference.genes_lookup[gene]["end"] - (pos + index - offset)) + a)
+                mutations.append(gene + "@" + r + str(reference.genes_lookup[gene]["end"] - (pos + index)) + a)
             else:
-                ref_seq[pos + index - offset - 1] = a
+                ref_seq[pos + index - 1] = a
     if reference.genes[gene].codes_protein:
         stacked_mask, mask = masks[gene]
 
@@ -95,14 +91,14 @@ def snps(reference, gene, pos, ref, alt, masks):
             offset += 1
             continue
         if r is not None and a is not None and r != a:
-            if reference.genes_lookup[gene]["end"] - (pos + index - offset) <= 0:
+            if reference.genes_lookup[gene]["end"] - (pos + index ) <= 0:
                 #Past the end of the gene so just return
                 return mutations
-            if (pos + index - offset) - reference.genes_lookup[gene]["start"] < 0 or reference.genes[gene].codes_protein == False:
+            if (pos + index) - reference.genes_lookup[gene]["start"] < 0 or reference.genes[gene].codes_protein == False:
                 #Promoter or non-coding so return the difference in nucleotides
-                mutations.append(gene + "@" + r + str((pos + index - offset) - reference.genes_lookup[gene]["start"]) + a)
+                mutations.append(gene + "@" + r + str((pos + index) - reference.genes_lookup[gene]["start"]) + a)
             else:
-                ref_seq[pos + index - offset - 1] = a
+                ref_seq[pos + index - 1] = a
     if reference.genes[gene].codes_protein:
         stacked_mask, mask = masks[gene]
 
@@ -153,7 +149,7 @@ def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
     #Iterate through the positions at which the ins could occur, checking which has the lowest overall SNPs
     for x in range(len(alt)+1):
         alt1 = [alt[i] for i in range(x)]+[None for i in range(del_len)]+[alt[i] for i in range(x, len(alt))]
-        if snp_number(ref1, alt1) < current_snps:
+        if snp_number(ref1, alt1) <= current_snps:
             current = alt1
             current_snps = snp_number(ref1, alt1)
             start = x
@@ -216,23 +212,24 @@ def ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
     #Iterate through the positions at which the ins could occur, checking which has the lowest overall SNPs
     for x in range(len(ref)+1):
         ref1 = [ref[i] for i in range(x)]+[None for i in range(ins_len)]+[ref[i] for i in range(x, len(ref))]
-        if snp_number(ref1, alt1) < current_snps:
+        if snp_number(ref1, alt1) <= current_snps:
             current = ref1
             current_snps = snp_number(ref1, alt1)
             start = x
     #Position with the best SNPs is the best position for the ins
     seq = [alt[i] for i in range(len(current)) if current[i] is None]
+    alt1 = [alt[i] for i in range(len(current)) if current[i] is not None]
     if rev_comp:
         p = reference.genes_lookup[gene]["end"] - (pos + start)
         a = ''.join(gumpy.Gene._complement(seq))
-        snp = rev_comp_snp(reference, gene, pos, current, alt, masks)
+        snp = rev_comp_snp(reference, gene, pos, ref, alt1, masks)
         if p > reference.genes_lookup[gene]["start"]:
             #Past the 3' end so ignore
             return snp
     else:
         p = pos - reference.genes_lookup[gene]["start"] + start
         a = ''.join(seq)
-        snp = snps(reference, gene, pos, current, alt, masks)
+        snp = snps(reference, gene, pos, ref, alt1, masks)
         if p > reference.genes_lookup[gene]["end"]:
             #Past the 3' end so ignore
             return snp
@@ -294,52 +291,6 @@ def get_masks(reference, gene):
     #The mask for singular arrays (1-dim) by collapsing stacked mask to 1-dim
     mask = numpy.any(stacked_mask, axis=0)
     return stacked_mask, mask
-
-def generalise(mutation):
-    '''Takes a mutation in GARC and produces a list of generalised mutations
-
-    Args:
-        mutation (str): Mutation
-    Returns:
-        list(str): List of generalised versions of mutations
-    '''
-    if re.compile(
-            r"([a-zA-Z0-9]+)@((-?\d+=)|([acgtA-Z!])(-?\d+)([actgA-Z!]))").fullmatch(mutation):
-        # SNP so no generalisation required
-        return [mutation]
-    else:
-        if "ins" in mutation:
-            # Of the form gene@pos_ins_bases
-            gene_name = mutation.split("@")[0]
-            pos, ins, bases = mutation.split("@")[1].split("_")
-            if len(bases) % 3 != 0:
-                # Frame shift
-                fs = [gene_name + "@" + pos + "_fs"]
-            else:
-                fs = []
-            items =  fs + [
-                mutation,
-                gene_name + "@" + pos + "_indel",
-                gene_name + "@" + pos + "_ins",
-                gene_name + "@" + pos + "_ins_" + str(len(bases)),
-            ]
-        elif "del" in mutation:
-            # Of the form gene@pos_del_bases
-            gene_name = mutation.split("@")[0]
-            pos, del_, bases = mutation.split("@")[1].split("_")
-            if len(bases) % 3 != 0:
-                # Frame shift
-                fs = [gene_name + "@" + pos + "_fs"]
-            else:
-                fs = []
-            items =  fs + [
-                mutation,
-                gene_name + "@" + pos + "_indel",
-                gene_name + "@" + pos + "_del",
-                gene_name + "@" + pos + "_del_" + str(len(bases)),
-            ]
-        # items = [i for i in items if i not in seen]
-        return items
 
 if __name__ == "__main__":
     #Load the reference genome
@@ -438,9 +389,6 @@ if __name__ == "__main__":
                 print(drug)
                 print(category)
             print()
-        if "generalise" in sys.argv:
-            #Produce more general cases such as gene@pos_indel if a flag is given
-            garc = functools.reduce(lambda x, y: x + y, [generalise(g) for g in garc], [])
         for drug in drug_columns:
             col = row[drug]
             drug = drug.split("_")[0]
