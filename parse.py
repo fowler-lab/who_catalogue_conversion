@@ -1,7 +1,9 @@
+import numpy
 import pandas as pd
-import gumpy, numpy
 
-count = 0
+import gumpy
+
+
 def parse_who_catalog(filename):
     '''Parses the WHO TB catalog
 
@@ -28,8 +30,12 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
     '''
     mutations = []
     ref_seq = reference.nucleotide_sequence.copy()
+    offset = 0
     for (index, (r, a)) in enumerate(zip(ref, alt)):
-        if r != a:
+        if r is None or a is None:
+            offset += 1
+            continue
+        if r is not None and a is not None and r != a:
             if (pos + index) - reference.genes_lookup[gene]["start"] <= 0:
                 #Past the end of the gene so just return
                 return mutations
@@ -64,33 +70,6 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
                 mutations.append(gene + "@" + r + str(pos_) + a)
     return mutations
 
-def rev_comp(reference, gene, pos, ref, alt, masks):
-    '''Handle reverse complement changes required
-
-    Args:
-        reference (gumpy.Genome): Reference genome object
-        gene (str): Name of the gene
-        pos (int): Genome index
-        ref (str): Reference bases
-        alt (str): Mutant bases
-        masks (dict): Dictionary used for caching the masks for rebuilding genes
-    Returns:
-        list(str): List of mutations in GARC
-    '''
-    if len(ref) == len(alt):
-        #SNP so convert to AA too
-        return rev_comp_snp(reference, gene, pos, ref, alt, masks)
-    elif len(ref) > len(alt):
-        #Del
-        snps = rev_comp_snp(reference, gene, pos, ref, alt, masks)
-        dels = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(ref) - len(alt))))) + "_del_" + "".join(gumpy.Gene._complement(list(ref[len(alt):])))]
-        return dels + snps
-    elif len(ref) < len(alt):
-        #Ins
-        snps = rev_comp_snp(reference, gene, pos, ref, alt, masks)
-        ins = [gene + "@" + str((reference.genes_lookup[gene]["end"] - (pos + (len(alt) - len(ref))))) + "_ins_" + "".join(gumpy.Gene._complement(list(alt[len(ref):])))]
-        return ins + snps
-
 def snps(reference, gene, pos, ref, alt, masks):
     '''Convert a mutation into the appropriate number of SNPs in GARC, converting to amino acids as required
 
@@ -106,9 +85,13 @@ def snps(reference, gene, pos, ref, alt, masks):
     '''
     mutations = []
     ref_seq = reference.nucleotide_sequence.copy()
+    offset = 0
     for (index, (r, a)) in enumerate(zip(ref, alt)):
-        if r != a:
-            if reference.genes_lookup[gene]["end"] - (pos + index) <= 0:
+        if r is None or a is None:
+            offset += 1
+            continue
+        if r is not None and a is not None and r != a:
+            if reference.genes_lookup[gene]["end"] - (pos + index ) <= 0:
                 #Past the end of the gene so just return
                 return mutations
             if (pos + index) - reference.genes_lookup[gene]["start"] < 0 or reference.genes[gene].codes_protein == False:
@@ -141,6 +124,118 @@ def snps(reference, gene, pos, ref, alt, masks):
                 mutations.append(gene + "@" + r + str(pos_) + a)
     return mutations
 
+
+def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
+    '''Deal with del calls. Attempts to identify dels mid-sequence. 
+        If a repeated base is deleted (aaa->aa), it is assumed that the first base is deleted.
+    
+    Args:
+        reference (gumpy.Genome): Reference genome object
+        gene (str): Gene name
+        pos (int): Genome position
+        ref (list): Reference bases
+        alt (list): Alternative bases
+        masks (dict): Dictionary of gene_name->(stacked_mask, mask)
+        rev_comp (bool, optional): Flag to determine if reverse complement. Defaults to False
+    Returns:
+        list(str): List of mutations in GARC
+    '''
+    #Del has len(alt) < len(ref)
+    del_len = len(ref) - len(alt)
+    current = None
+    current_snps = 999
+    start = 0
+    ref1 = list(ref)
+    #Iterate through the positions at which the ins could occur, checking which has the lowest overall SNPs
+    for x in range(len(alt)+1):
+        alt1 = [alt[i] for i in range(x)]+[None for i in range(del_len)]+[alt[i] for i in range(x, len(alt))]
+        if snp_number(ref1, alt1) <= current_snps:
+            current = alt1
+            current_snps = snp_number(ref1, alt1)
+            start = x
+    #Position with the best SNPs is the best position for the ins
+    seq = [ref[i] for i in range(len(current)) if current[i] is None]
+    if rev_comp:
+        p = reference.genes_lookup[gene]["end"] - (pos + start)
+        r = ''.join(gumpy.Gene._complement(seq))
+        snp = rev_comp_snp(reference, gene, pos, ref, current, masks)
+        if p > reference.genes_lookup[gene]["end"]:
+            #Del happened past the 3' end of the gene so ignore it
+            return snp
+    else:
+        p = pos - reference.genes_lookup[gene]["start"] + start
+        r = ''.join(seq)
+        snp = snps(reference, gene, pos, ref, current, masks)
+        if p > reference.genes_lookup[gene]["end"]:
+            #If the del happened past the 3' end of the gene, ignore it
+            return snp
+    return snp + [gene + "@" + str(p) + "_del_" + r]
+
+def snp_number(ref, alt):       
+    '''Helper function to find the SNP distance between two arrays, ignoring None values
+
+    Args:
+        ref (list): List of bases
+        alt (list): List of bases
+
+    Returns:
+        int: SNP distance ignoring None values
+    '''    
+    snps = 0
+    for (a, b) in zip(ref, alt):
+        if a is not None and b is not None and a != b:
+            snps += 1
+    return snps
+
+def ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
+    '''Deal with ins calls. Attempts to detect mid-sequence insertions.
+        If a repeated base has an insertion, it is assumed that the insertion occured at first base (`aa`->`aaa` infers ins @ seq[0])
+
+    Args:
+        reference (gumpy.Genome): Reference Genome object
+        gene (str): Gene name
+        pos (int): Genome index
+        ref (str): Reference bases
+        alt (str): Alternative bases
+        masks (dict): Dictionary of gene_name->(stacked_mask, mask)
+        rev_comp (bool, optional): Flag to show if the gene is reverse complement. Defaults to False
+    Returns:
+        list(str): List of mutations in GARC
+    '''    
+    #Ins has len(ref) < len(alt)
+    ins_len = len(alt) - len(ref)
+    current = None
+    #Arbitrarily high SNPs so it can only decrease
+    current_snps = 999
+    start = 0
+    alt1 = list(alt)
+    #Iterate through the positions at which the ins could occur, checking which has the lowest overall SNPs
+    for x in range(len(ref)+1):
+        ref1 = [ref[i] for i in range(x)]+[None for i in range(ins_len)]+[ref[i] for i in range(x, len(ref))]
+        if snp_number(ref1, alt1) <= current_snps:
+            current = ref1
+            current_snps = snp_number(ref1, alt1)
+            start = x
+    #Position with the best SNPs is the best position for the ins
+    seq = [alt[i] for i in range(len(current)) if current[i] is None]
+    alt1 = [alt[i] for i in range(len(current)) if current[i] is not None]
+    if rev_comp:
+        p = reference.genes_lookup[gene]["end"] - (pos + start)
+        a = ''.join(gumpy.Gene._complement(seq))
+        snp = rev_comp_snp(reference, gene, pos, ref, alt1, masks)
+        if p > reference.genes_lookup[gene]["start"]:
+            #Past the 3' end so ignore
+            return snp
+    else:
+        p = pos - reference.genes_lookup[gene]["start"] + start
+        a = ''.join(seq)
+        snp = snps(reference, gene, pos, ref, alt1, masks)
+        if p > reference.genes_lookup[gene]["end"]:
+            #Past the 3' end so ignore
+            return snp
+    return snp + [gene + "@" + str(p) + "_ins_" + a]
+
+
 def to_garc(reference, gene, pos, ref, alt, masks):
     '''Convert to GARC
 
@@ -149,35 +244,34 @@ def to_garc(reference, gene, pos, ref, alt, masks):
         pos (int): Genome index
         ref (str): Reference base(s)
         alt (str): Mutant base(s)
+        masks (dict): Dictionary of gene_name->(stacked_mask, mask)
     Returns:
         list(str): List of mutations in GARC
     '''
-    #Reverse complement genes need some alterations
-    if reference.genes[gene].reverse_complement:
-        return rev_comp(reference, gene, pos, ref, alt, masks)
-    #Just convert to GARC
-    else:
-        if len(ref) == len(alt):
+    rev_comp = reference.genes[gene].reverse_complement
+    if len(ref) == len(alt):
+        if rev_comp:
+            return rev_comp_snp(reference, gene, pos, ref, alt, masks)
+        else:
             return snps(reference, gene, pos, ref, alt, masks)
-        elif len(ref) > len(alt):
-            '''
-            Indels are weirder than I first thought, they don't always indicate a del/ins at the end of the seq
-                e.g. agctctagtg -> agtctagta has a `c` being deleted mid-seq (seq[2])
-            With this kind of mid-seq indel, it is not possible to determine which position an indel occurs at, especially as there are often SNPs too:
-                e.g:
-                    tccggtctg -> a is ambiguous as to which values are delted/SNPs so the positions reported could be wrong
-                    accg -> a is ambiguous as to if this is del(ccg) or del some other 3 bases and a SNP
-            Also, GARC does not have syntax to suport both insertions and deltions simaltaneously
-
-            '''
-            #Del
-            snp = snps(reference, gene, pos, ref, alt, masks)
-            dels = [gene + "@" + str(((pos + (len(ref) - len(alt))) - reference.genes_lookup[gene]["start"])) + "_del_" + ref[len(alt):]]
-            return snp + dels
-        elif len(ref) < len(alt):
-            snp = snps(reference, gene, pos, ref, alt, masks)       
-            ins = [gene + "@" + str(((pos + (len(alt) - len(ref))) - reference.genes_lookup[gene]["start"])) + "_ins_" + alt[len(ref):]]     
-            return ins + snp
+    elif len(ref) > len(alt):
+        '''
+        Indels are weirder than I first thought, they don't always indicate a del/ins at the end of the seq
+            e.g. agctctagtg -> agtctagta has a `c` being deleted mid-seq (seq[2])
+        With this kind of mid-seq indel, it is not possible to determine which position an indel occurs at, especially as there are often SNPs too:
+            e.g:
+                tccggtctg -> a is ambiguous as to which values are delted/SNPs so the positions reported could be wrong
+                accg -> a is ambiguous as to if this is del(ccg) or del some other 3 bases and a SNP
+        Also, GARC does not have syntax to suport both insertions and deltions simaltaneously
+        In order to make some sense of this, the indel is selected based on where in the sequence it causes the least SNPs. If there are
+        repeating sequences as detailed above, the first one is selected. This is not a perfect solution, but allows some form of standardisation
+        with the least possible mutations from a single row.
+        '''
+        #Del
+        return del_calls(reference, gene, pos, ref, alt, masks, rev_comp=rev_comp)
+    elif len(ref) < len(alt):
+        #Ins
+        return ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=rev_comp)
 
 
 def get_masks(reference, gene):
@@ -230,8 +324,8 @@ if __name__ == "__main__":
             "R": set(),
             "U": set(),
             "S": set(),
-            "F": set()} for drug in drug_columns}
-
+            # "F": set()
+            } for drug in drug_columns}
     #Iterate over the catalogue
     for (index, row) in data.iterrows():
         garc = []
@@ -240,7 +334,7 @@ if __name__ == "__main__":
         if masks.get(gene) is None:
             #Cache the masks
             masks = {gene: get_masks(reference, gene)}
-        pos = str(row["final_annotation.Position"])
+        pos = str(row["final_annotation.Position"])#Cast to a str for str.split(',')
         ref = row["final_annotation.ReferenceNucleotide"]
         alt = row["final_annotation.AlternativeNucleotide"]
 
@@ -267,8 +361,34 @@ if __name__ == "__main__":
                 raise Exception("Weird format: "+ref+", "+alt)
         else:
             garc += to_garc(reference, gene, int(pos), ref, alt, masks)
-        # if reference.genes[gene].reverse_complement:
-        # print(index, garc, gene, pos, ref, alt)
+        if True in [m in 
+                    {'rpoB@1296_ins_ttc', 'pncA@317_del_t', 'pncA@394_del_gctggtgta', 'pncA@391_ins_gg', 
+                    'pncA@-4_del_g', 'pncA@456_ins_c', 'pncA@389_del_tgta', 'eis@c-13t', 'gid@102_del_g', 
+                    'gid@351_del_g', 'ethA@110_del_a'} 
+                    for m in garc]:
+            print(ref)
+            print(alt)
+            print(garc)
+            for drug in drug_columns:
+                col = row[drug]
+                drug = drug.split("_")[0]
+                category = None
+                if pd.isnull(col):
+                    continue
+                if "1)" in col:
+                    # Resistance
+                    category = "R"
+                elif "3)" in col:
+                    # Uncertain
+                    category = "U"
+                elif "2)" in col or "4)" in col or "5)" in col or col == "Synonymous":
+                    # Not resistant
+                    category = "S"
+                else:
+                    category = "F"
+                print(drug)
+                print(category)
+            print()
         for drug in drug_columns:
             col = row[drug]
             drug = drug.split("_")[0]
@@ -284,25 +404,42 @@ if __name__ == "__main__":
             elif "2)" in col or "4)" in col or "5)" in col or col == "Synonymous":
                 # Not resistant
                 category = "S"
-            else:
-                category = "F"
+            # else:
+                # category = "F"
 
             for mutation in garc:
                 drugs[drug][category].add(mutation)
 
+
+            
+            
+
     with open("output.csv", "w") as f:
         header = "GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,PREDICTION_VALUES,DRUG,MUTATION,PREDICTION,SOURCE,EVIDENCE,OTHER\n"
-        common_all = "NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RSUF,"
+        common_all = "NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,"
         f.write(header)
         resist = 0
         for drug in drugs.keys():
             print(drug)
             common = common_all + drug + ","
             for category in drugs[drug].keys():
-                for mutation in sorted(drugs[drug][category]):
+                #As there are some mutations which are R and another category,
+                #just assume that they belong to R so piezo can parse the catalogue.
+                m = drugs[drug][category]
+                for c in drugs[drug].keys():
+                    if c != category:
+                        m = m.difference(drugs[drug][c])
+                mutations = sorted(list(m))
+                # if category != "R":
+                #     mutations = sorted(list(drugs[drug][category].difference(drugs[drug]["R"])))
+                # else:
+                #     mutations = sorted(list(drugs[drug][category]))
+                for mutation in mutations:
                     f.write(common + mutation + "," + category + ",{},{},{}\n")
-            print({key: len(drugs[drug][key]) for key in drugs[drug].keys()})
+            # print({key: len(drugs[drug][key]) for key in drugs[drug].keys()})
+            print({key: drugs[drug]["R"].intersection(drugs[drug][key])
+            for key in drugs[drug].keys() 
+            if key != "R" and len(drugs[drug]["R"].intersection(drugs[drug][key])) > 0 })
             synon_resist = len([m for m in drugs[drug]["R"] if "=" in m])
-            print(synon_resist)
+            # print(synon_resist)
             print()
-    # print(garc)
