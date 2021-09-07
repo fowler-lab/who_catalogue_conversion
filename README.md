@@ -15,8 +15,28 @@ As long as there is a single indel within the sequence, this works. More than 1 
 Requires [gumpy](https://github.com/oxfordmmm/gumpy "gumpy") for finding amino acid changes.
 
 ## Parsing
-Due to the unstable nature of the grammar used within the catalogue, it is simpler to parse the mutations and build from the ground up rather than translation.
+Due to the unstable nature of the grammar used within the catalogue, it is simpler to parse the mutations and build from the ground up rather than translation. General rules are also added to ensure that any mutation input can be predicted for. These include rules such as `*= S` which means that any synonymous mutation infers susceptibility (i.e any non-change in amino acids should remain susceptable), and `*? U` which means that any nonsynonymous mutation infers an unknown outcome. This means that any mutation passed to `piezo` using this catalogue can produce a prediction.
 ```
-python parse.py
+python parse.py > skipped.tsv
 ```
 This produces `output.csv` which is of a similar format to the catalogues ingested by piezo. This lacks the generalised rules which occur in some of the mutations denoted within [existing piezo catalogues](https://github.com/oxfordmmm/tuberculosis_amr_catalogues "existing piezo catalogues").
+`skipped.tsv` is also produced, which details some rows of the catalogue which were skipped for various issues (see below).
+
+## Issues
+There are some rows of the WHO TB catalogue which do not cleanly produce a singluar mutation for a singular row of the catalogue. There are cases where there are several SNPs within a single row, or a mixture of SNPs and an indel (as detailed above). This becomes an issue due to the fact that these mutations should therefore be coupled together - all mutations detailed in a row should be present for the resistance prediction.
+This makes it impossible to translate these rows to GARC as there is not support for chaining mutations like this, i.e something along the lines of `whiB6@a-77g & whiB6@-74_del_g` is not valid GARC syntax, and to extend GARC to handle such detail would involve serious work with all tools which utilise it.
+Therefore, rows which produce more than 1 mutation must be skipped within the output.
+
+Furthermore, there are some rows which detail mutations past the 3' end of the gene, and so are not helpful and are also ommitted.
+
+
+Moreover, there exist some rows which produce mutations which are placed in more than 1 resistance category for a drug. These may be distinct rows, but as the mutations are the same with different results, they also have to be ommitted. 
+
+E.g. gid@351_del_g is formed by `cgc -> cg @ 4407850`, but can also be formed by `gc -> c @ 4407851` - both giving deletion of the same `c` base in different rows. The former is accociated with susceptibility to streptomycin, whereas the latter is associated with resistance to streptomycin. This is due to the `interim` values used within the catalogue not concretely inferring resistance, so susceptibility must be selected instead.
+
+A full breakdown of skipped rows can be found in `skipped.tsv`, with the general format for rows being `label   gene    pos ref alt` with some exceptions such as for mutations in > 1 category, and added mutation data for rows with multiple mutations. 
+
+Labels:
+* `Multiple mutations per row:` Is the result of skipping due to > 1 mutation in this row.
+* `Cut off` Is the result of skipping due to changes detailed past the 3' end of the gene.
+* `Exists in >1 resistance category:` Is the result of skipping due to the mutation belonging to > 1 resistance category for a given drug.

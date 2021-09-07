@@ -2,6 +2,8 @@ import pandas as pd
 from functools import reduce
 from collections import Counter
 
+'''Testing some aspects of the catalogue...
+'''
 def parse_who_catalog(filename):
     '''Parses the WHO TB catalog
 

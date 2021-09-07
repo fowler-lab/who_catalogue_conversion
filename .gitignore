@@ -132,3 +132,4 @@ gumpy
 reference.json.gz
 *.csv
 .~lock*
+skipped.tsv
