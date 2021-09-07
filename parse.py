@@ -38,7 +38,8 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
         if r is not None and a is not None and r != a:
             if (pos + index) - reference.genes_lookup[gene]["start"] <= 0:
                 #Past the end of the gene so just return
-                return mutations
+                print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
+                return []
             if reference.genes_lookup[gene]["end"] - (pos + index) < 0 or reference.genes[gene].codes_protein == False:
                 #Promoter or non-coding so return the difference in nucleotides
                 r,a  = gumpy.Gene._complement([r, a])
@@ -93,7 +94,8 @@ def snps(reference, gene, pos, ref, alt, masks):
         if r is not None and a is not None and r != a:
             if reference.genes_lookup[gene]["end"] - (pos + index ) <= 0:
                 #Past the end of the gene so just return
-                return mutations
+                print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
+                return []
             if (pos + index) - reference.genes_lookup[gene]["start"] < 0 or reference.genes[gene].codes_protein == False:
                 #Promoter or non-coding so return the difference in nucleotides
                 mutations.append(gene + "@" + r + str((pos + index) - reference.genes_lookup[gene]["start"]) + a)
@@ -161,14 +163,16 @@ def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
         snp = rev_comp_snp(reference, gene, pos, ref, current, masks)
         if p > reference.genes_lookup[gene]["end"]:
             #Del happened past the 3' end of the gene so ignore it
-            return snp
+            print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
+            return []
     else:
         p = pos - reference.genes_lookup[gene]["start"] + start
         r = ''.join(seq)
         snp = snps(reference, gene, pos, ref, current, masks)
         if p > reference.genes_lookup[gene]["end"]:
             #If the del happened past the 3' end of the gene, ignore it
-            return snp
+            print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
+            return []
     return snp + [gene + "@" + str(p) + "_del_" + r]
 
 def snp_number(ref, alt):       
@@ -225,14 +229,16 @@ def ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
         snp = rev_comp_snp(reference, gene, pos, ref, alt1, masks)
         if p > reference.genes_lookup[gene]["start"]:
             #Past the 3' end so ignore
-            return snp
+            print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
+            return []
     else:
         p = pos - reference.genes_lookup[gene]["start"] + start
         a = ''.join(seq)
         snp = snps(reference, gene, pos, ref, alt1, masks)
         if p > reference.genes_lookup[gene]["end"]:
             #Past the 3' end so ignore
-            return snp
+            print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
+            return []
     return snp + [gene + "@" + str(p) + "_ins_" + a]
 
 
@@ -272,6 +278,9 @@ def to_garc(reference, gene, pos, ref, alt, masks):
     elif len(ref) < len(alt):
         #Ins
         return ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=rev_comp)
+    else:
+        #This should never be reached, but if it is, record it
+        print("???", gene, pos, ref, alt, sep="\t")
 
 
 def get_masks(reference, gene):
@@ -326,11 +335,13 @@ if __name__ == "__main__":
             "S": set(),
             # "F": set()
             } for drug in drug_columns}
+    genes = set()
     #Iterate over the catalogue
     for (index, row) in data.iterrows():
         garc = []
         #Pull out gene name, pos, ref and alt
         gene = row["gene_name"]
+        genes.add(gene)
         if masks.get(gene) is None:
             #Cache the masks
             masks = {gene: get_masks(reference, gene)}
@@ -340,55 +351,15 @@ if __name__ == "__main__":
 
         #Check for multiple positions defined within pos
         if len(pos.split(",")) > 1:
-            #There is more than 1 position defined
-            
-            #Case where the number of positions matches the number of reference bases
-            if len(pos.split(",")) == len(ref) == len(alt):
-                pos = pos.split(",")
-                for (p, r, a) in zip(pos, ref, alt):
-                    garc += to_garc(reference, gene, int(p), r, a, masks)
-            #Case where the number of positions is less than the number of reference bases
-            elif len(pos.split(",")) < len(ref):
-                index = 0
-                pos = pos.split(",")
-                if len(ref) != len(alt):
-                    raise Exception("Different ref and alt lengths")
-                for (r, a) in zip(ref, alt):
-                    if r != a:
-                        garc += to_garc(reference, gene, int(pos[index]), r, a, masks)
-                        index += 1
-            else:
-                raise Exception("Weird format: "+ref+", "+alt)
+            #There is more than 1 mutation detailed in this row, so skip it
+            print("Mulitple muations per row: ", gene, pos, ref, alt, sep="\t")
+            continue
         else:
             garc += to_garc(reference, gene, int(pos), ref, alt, masks)
-        if True in [m in 
-                    {'rpoB@1296_ins_ttc', 'pncA@317_del_t', 'pncA@394_del_gctggtgta', 'pncA@391_ins_gg', 
-                    'pncA@-4_del_g', 'pncA@456_ins_c', 'pncA@389_del_tgta', 'eis@c-13t', 'gid@102_del_g', 
-                    'gid@351_del_g', 'ethA@110_del_a'} 
-                    for m in garc]:
-            print(ref)
-            print(alt)
-            print(garc)
-            for drug in drug_columns:
-                col = row[drug]
-                drug = drug.split("_")[0]
-                category = None
-                if pd.isnull(col):
-                    continue
-                if "1)" in col:
-                    # Resistance
-                    category = "R"
-                elif "3)" in col:
-                    # Uncertain
-                    category = "U"
-                elif "2)" in col or "4)" in col or "5)" in col or col == "Synonymous":
-                    # Not resistant
-                    category = "S"
-                else:
-                    category = "F"
-                print(drug)
-                print(category)
-            print()
+            if len(garc) > 1:
+                #There is more than 1 mutation generated from this row, so skip it
+                print("Multiple mutations per row: ", gene, pos, ref, alt, garc, sep="\t")
+                continue
         for drug in drug_columns:
             col = row[drug]
             drug = drug.split("_")[0]
@@ -404,8 +375,6 @@ if __name__ == "__main__":
             elif "2)" in col or "4)" in col or "5)" in col or col == "Synonymous":
                 # Not resistant
                 category = "S"
-            # else:
-                # category = "F"
 
             for mutation in garc:
                 drugs[drug][category].add(mutation)
@@ -413,33 +382,32 @@ if __name__ == "__main__":
 
             
             
-
+    seen_duplicates = set()
     with open("output.csv", "w") as f:
         header = "GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,PREDICTION_VALUES,DRUG,MUTATION,PREDICTION,SOURCE,EVIDENCE,OTHER\n"
         common_all = "NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,"
         f.write(header)
         resist = 0
         for drug in drugs.keys():
-            print(drug)
             common = common_all + drug + ","
+            #Write basic rules to cover all mutations not detailed here
+                #gene@*= S
+                #gene@*? U
+            for gene in sorted(list(genes)):
+                    f.write(common + gene+"@*=,S,{},{},{}\n")
+                    f.write(common + gene+"@*?,U,{},{},{}\n")
             for category in drugs[drug].keys():
                 #As there are some mutations which are R and another category,
-                #just assume that they belong to R so piezo can parse the catalogue.
+                #Remove all collisions...
                 m = drugs[drug][category]
+                original = m
                 for c in drugs[drug].keys():
                     if c != category:
                         m = m.difference(drugs[drug][c])
                 mutations = sorted(list(m))
-                # if category != "R":
-                #     mutations = sorted(list(drugs[drug][category].difference(drugs[drug]["R"])))
-                # else:
-                #     mutations = sorted(list(drugs[drug][category]))
+                for missed in original.difference(m).difference(seen_duplicates):
+                    print("Exists in >1 resistance category: ", missed, drug, sep="\t")
+                    seen_duplicates.add(missed)
+
                 for mutation in mutations:
                     f.write(common + mutation + "," + category + ",{},{},{}\n")
-            # print({key: len(drugs[drug][key]) for key in drugs[drug].keys()})
-            print({key: drugs[drug]["R"].intersection(drugs[drug][key])
-            for key in drugs[drug].keys() 
-            if key != "R" and len(drugs[drug]["R"].intersection(drugs[drug][key])) > 0 })
-            synon_resist = len([m for m in drugs[drug]["R"] if "=" in m])
-            # print(synon_resist)
-            print()
