@@ -1,6 +1,8 @@
 import numpy
 import pandas as pd
 
+from tqdm import tqdm
+
 import gumpy
 
 
@@ -36,32 +38,36 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
             offset += 1
             continue
         if r is not None and a is not None and r != a:
-            if (pos + index) - reference.genes_lookup[gene]["start"] <= 0:
+            if (pos + index) - reference.genes[gene]["start"] <= 0:
                 #Past the end of the gene so just return
                 print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
                 return []
-            if reference.genes_lookup[gene]["end"] - (pos + index) < 0 or reference.genes[gene].codes_protein == False:
+            if reference.genes[gene]["end"] - (pos + index) < 0 or reference.genes[gene]['codes_protein'] == False:
                 #Promoter or non-coding so return the difference in nucleotides
                 r,a  = gumpy.Gene._complement([r, a])
-                mutations.append(gene + "@" + r + str(reference.genes_lookup[gene]["end"] - (pos + index)) + a)
+                mutations.append(gene + "@" + r + str(reference.genes[gene]["end"] - (pos + index)) + a)
             else:
                 ref_seq[pos + index - 1] = a
-    if reference.genes[gene].codes_protein:
+                
+    if reference.genes[gene]['codes_protein']:
         stacked_mask, mask = masks[gene]
+
+        ref_gene = reference.build_gene(gene)
 
         g = gumpy.Gene(   name=gene,\
                     nucleotide_sequence=ref_seq[mask],\
-                    index=reference.nucleotide_index[mask],\
+                    nucleotide_index=reference.nucleotide_index[mask],\
                     nucleotide_number=reference.stacked_nucleotide_number[stacked_mask],\
                     is_cds=reference.stacked_is_cds[stacked_mask],\
                     is_promoter=reference.stacked_is_promoter[stacked_mask],\
                     is_indel=reference.is_indel[mask],
                     indel_length=reference.indel_length[mask],
-                    codes_protein=reference.genes_lookup[gene]['codes_protein'],\
-                    reverse_complement=reference.genes_lookup[gene]['reverse_complement'],\
-                    feature_type=reference.genes_lookup[gene]['type'])
-        
-        aa_mut = [(i+1, ref_aa, alt_aa) for (i, (ref_aa, alt_aa)) in enumerate(zip(reference.genes[gene].codons, g.codons)) if ref_aa != alt_aa]
+                    indel_nucleotides=reference.indel_nucleotides[mask],
+                    codes_protein=reference.genes[gene]['codes_protein'],\
+                    reverse_complement=reference.genes[gene]['reverse_complement'],\
+                    feature_type=reference.genes[gene]['type'])
+
+        aa_mut = [(i+1, ref_aa, alt_aa) for (i, (ref_aa, alt_aa)) in enumerate(zip(ref_gene.codons, g.codons)) if ref_aa != alt_aa]
         for (pos_, r, a) in aa_mut:
             r = g.codon_to_amino_acid[r]
             a = g.codon_to_amino_acid[a]
@@ -92,31 +98,34 @@ def snps(reference, gene, pos, ref, alt, masks):
             offset += 1
             continue
         if r is not None and a is not None and r != a:
-            if reference.genes_lookup[gene]["end"] - (pos + index ) <= 0:
+            if reference.genes[gene]["end"] - (pos + index ) <= 0:
                 #Past the end of the gene so just return
                 print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
                 return []
-            if (pos + index) - reference.genes_lookup[gene]["start"] < 0 or reference.genes[gene].codes_protein == False:
+            if (pos + index) - reference.genes[gene]["start"] < 0 or reference.genes[gene]['codes_protein'] == False:
                 #Promoter or non-coding so return the difference in nucleotides
-                mutations.append(gene + "@" + r + str((pos + index) - reference.genes_lookup[gene]["start"]) + a)
+                mutations.append(gene + "@" + r + str((pos + index) - reference.genes[gene]["start"]) + a)
             else:
                 ref_seq[pos + index - 1] = a
-    if reference.genes[gene].codes_protein:
+    if reference.genes[gene]['codes_protein']:
         stacked_mask, mask = masks[gene]
+
+        ref_gene = reference.build_gene(gene)
 
         g = gumpy.Gene(   name=gene,\
                     nucleotide_sequence=ref_seq[mask],\
-                    index=reference.nucleotide_index[mask],\
+                    nucleotide_index=reference.nucleotide_index[mask],\
                     nucleotide_number=reference.stacked_nucleotide_number[stacked_mask],\
                     is_cds=reference.stacked_is_cds[stacked_mask],\
                     is_promoter=reference.stacked_is_promoter[stacked_mask],\
                     is_indel=reference.is_indel[mask],
                     indel_length=reference.indel_length[mask],
-                    codes_protein=reference.genes_lookup[gene]['codes_protein'],\
-                    reverse_complement=reference.genes_lookup[gene]['reverse_complement'],\
-                    feature_type=reference.genes_lookup[gene]['type'])
-        
-        aa_mut = [(i+1, ref_aa, alt_aa) for (i, (ref_aa, alt_aa)) in enumerate(zip(reference.genes[gene].codons, g.codons)) if ref_aa != alt_aa]
+                    indel_nucleotides=reference.indel_nucleotides[mask],
+                    codes_protein=reference.genes[gene]['codes_protein'],\
+                    reverse_complement=reference.genes[gene]['reverse_complement'],\
+                    feature_type=reference.genes[gene]['type'])
+
+        aa_mut = [(i+1, ref_aa, alt_aa) for (i, (ref_aa, alt_aa)) in enumerate(zip(ref_gene.codons, g.codons)) if ref_aa != alt_aa]
         for (pos_, r, a) in aa_mut:
             r = g.codon_to_amino_acid[r]
             a = g.codon_to_amino_acid[a]
@@ -128,9 +137,9 @@ def snps(reference, gene, pos, ref, alt, masks):
 
 
 def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
-    '''Deal with del calls. Attempts to identify dels mid-sequence. 
+    '''Deal with del calls. Attempts to identify dels mid-sequence.
         If a repeated base is deleted (aaa->aa), it is assumed that the first base is deleted.
-    
+
     Args:
         reference (gumpy.Genome): Reference genome object
         gene (str): Gene name
@@ -158,24 +167,24 @@ def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
     #Position with the best SNPs is the best position for the ins
     seq = [ref[i] for i in range(len(current)) if current[i] is None]
     if rev_comp:
-        p = reference.genes_lookup[gene]["end"] - (pos + start)
+        p = reference.genes[gene]["end"] - (pos + start)
         r = ''.join(gumpy.Gene._complement(seq))
         snp = rev_comp_snp(reference, gene, pos, ref, current, masks)
-        if p > reference.genes_lookup[gene]["end"]:
+        if p > reference.genes[gene]["end"]:
             #Del happened past the 3' end of the gene so ignore it
             print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
             return []
     else:
-        p = pos - reference.genes_lookup[gene]["start"] + start
+        p = pos - reference.genes[gene]["start"] + start
         r = ''.join(seq)
         snp = snps(reference, gene, pos, ref, current, masks)
-        if p > reference.genes_lookup[gene]["end"]:
+        if p > reference.genes[gene]["end"]:
             #If the del happened past the 3' end of the gene, ignore it
             print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
             return []
     return snp + [gene + "@" + str(p) + "_del_" + r]
 
-def snp_number(ref, alt):       
+def snp_number(ref, alt):
     '''Helper function to find the SNP distance between two arrays, ignoring None values
 
     Args:
@@ -184,7 +193,7 @@ def snp_number(ref, alt):
 
     Returns:
         int: SNP distance ignoring None values
-    '''    
+    '''
     snps = 0
     for (a, b) in zip(ref, alt):
         if a is not None and b is not None and a != b:
@@ -205,7 +214,7 @@ def ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
         rev_comp (bool, optional): Flag to show if the gene is reverse complement. Defaults to False
     Returns:
         list(str): List of mutations in GARC
-    '''    
+    '''
     #Ins has len(ref) < len(alt)
     ins_len = len(alt) - len(ref)
     current = None
@@ -224,18 +233,18 @@ def ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
     seq = [alt[i] for i in range(len(current)) if current[i] is None]
     alt1 = [alt[i] for i in range(len(current)) if current[i] is not None]
     if rev_comp:
-        p = reference.genes_lookup[gene]["end"] - (pos + start)
+        p = reference.genes[gene]["end"] - (pos + start)
         a = ''.join(gumpy.Gene._complement(seq))
         snp = rev_comp_snp(reference, gene, pos, ref, alt1, masks)
-        if p > reference.genes_lookup[gene]["start"]:
+        if p > reference.genes[gene]["start"]:
             #Past the 3' end so ignore
             print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
             return []
     else:
-        p = pos - reference.genes_lookup[gene]["start"] + start
+        p = pos - reference.genes[gene]["start"] + start
         a = ''.join(seq)
         snp = snps(reference, gene, pos, ref, alt1, masks)
-        if p > reference.genes_lookup[gene]["end"]:
+        if p > reference.genes[gene]["end"]:
             #Past the 3' end so ignore
             print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
             return []
@@ -254,7 +263,7 @@ def to_garc(reference, gene, pos, ref, alt, masks):
     Returns:
         list(str): List of mutations in GARC
     '''
-    rev_comp = reference.genes[gene].reverse_complement
+    rev_comp = reference.genes[gene]['reverse_complement']
     if len(ref) == len(alt):
         if rev_comp:
             return rev_comp_snp(reference, gene, pos, ref, alt, masks)
@@ -287,7 +296,7 @@ def get_masks(reference, gene):
     '''Find the numpy masks for the arrays within the reference genome for the specified gene.
     The masks are used to speed up the instanciation of new Gene objects for SNP finding. Finding the masks
         takes some time, so this is cached so the mask only has to be found once per gene rather than once per row
-    
+
     Args:
         reference (gumpy.Genome): Reference genome object
         gene (str): Gene name
@@ -303,7 +312,8 @@ def get_masks(reference, gene):
 
 if __name__ == "__main__":
     #Load the reference genome
-    reference = gumpy.Genome.load("reference.json.gz")
+    # reference = gumpy.Genome.load("reference.json.gz")
+    reference = gumpy.Genome("../gumpy/config/NC_000962.3.gbk.gz", show_progress_bar=True)
 
     #Load the catalogue
     data = parse_who_catalog("WHO-UCN-GTB-PCI-2021.7-eng.xlsx")
@@ -336,8 +346,9 @@ if __name__ == "__main__":
             # "F": set()
             } for drug in drug_columns}
     genes = set()
+
     #Iterate over the catalogue
-    for (index, row) in data.iterrows():
+    for (index, row) in tqdm(data.iterrows()):
         garc = []
         #Pull out gene name, pos, ref and alt
         gene = row["gene_name"]
@@ -354,12 +365,14 @@ if __name__ == "__main__":
             #There is more than 1 mutation detailed in this row, so skip it
             print("Mulitple muations per row: ", gene, pos, ref, alt, sep="\t")
             continue
-        else:
+        else:            
             garc += to_garc(reference, gene, int(pos), ref, alt, masks)
             if len(garc) > 1:
                 #There is more than 1 mutation generated from this row, so skip it
                 print("Multiple mutations per row: ", gene, pos, ref, alt, garc, sep="\t")
                 continue
+            # except:
+            #     print(gene, int(pos), ref, alt)
         for drug in drug_columns:
             col = row[drug]
             drug = drug.split("_")[0]
@@ -380,8 +393,8 @@ if __name__ == "__main__":
                 drugs[drug][category].add(mutation)
 
 
-            
-            
+
+
     seen_duplicates = set()
     with open("output.csv", "w") as f:
         header = "GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,PREDICTION_VALUES,DRUG,MUTATION,PREDICTION,SOURCE,EVIDENCE,OTHER\n"
