@@ -171,6 +171,7 @@ def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
         r = ''.join(gumpy.Gene._complement(seq))
         snp = rev_comp_snp(reference, gene, pos, ref, current, masks)
         if p > reference.genes[gene]["end"]:
+            print(p, pos, start, reference.genes[gene]["end"])
             #Del happened past the 3' end of the gene so ignore it
             print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
             return []
@@ -179,6 +180,7 @@ def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
         r = ''.join(seq)
         snp = snps(reference, gene, pos, ref, current, masks)
         if p > reference.genes[gene]["end"]:
+            print(p, pos, start, reference.genes[gene]["end"])
             #If the del happened past the 3' end of the gene, ignore it
             print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
             return []
