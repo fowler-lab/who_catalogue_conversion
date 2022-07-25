@@ -38,7 +38,7 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
             offset += 1
             continue
         if r is not None and a is not None and r != a:
-            if (pos + index) - reference.genes[gene]["start"] <= 0:
+            if (pos + index) - reference.genes[gene]["start"] < 0:
                 #Past the end of the gene so just return
                 print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
                 return []
@@ -167,7 +167,7 @@ def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
     #Position with the best SNPs is the best position for the ins
     seq = [ref[i] for i in range(len(current)) if current[i] is None]
     if rev_comp:
-        p = reference.genes[gene]["end"] - (pos + start)
+        p = reference.genes[gene]["end"] - (pos + start) - 1
         r = ''.join(gumpy.Gene._complement(seq))
         snp = rev_comp_snp(reference, gene, pos, ref, current, masks)
         if p > reference.genes[gene]["end"]:
@@ -235,7 +235,7 @@ def ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
     seq = [alt[i] for i in range(len(current)) if current[i] is None]
     alt1 = [alt[i] for i in range(len(current)) if current[i] is not None]
     if rev_comp:
-        p = reference.genes[gene]["end"] - (pos + start)
+        p = reference.genes[gene]["end"] - (pos + start) - 1
         a = ''.join(gumpy.Gene._complement(seq))
         snp = rev_comp_snp(reference, gene, pos, ref, alt1, masks)
         if p > reference.genes[gene]["start"]:
