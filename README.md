@@ -12,7 +12,10 @@ If there are repeating sections which are ambiguous, the first item is chosen as
 As long as there is a single indel within the sequence, this works. More than 1 indel in a sequence has not been observed
 
 ## Requirements
-Requires [gumpy](https://github.com/oxfordmmm/gumpy "gumpy") for finding amino acid changes.
+Requires [gumpy](https://github.com/oxfordmmm/gumpy "gumpy") for finding amino acid changes. Everything should be installable through pip:
+```
+pip install -r requirements.txt
+```
 
 ## Parsing
 Due to the unstable nature of the grammar used within the catalogue, it is simpler to parse the mutations and build from the ground up rather than translation. General rules are also added to ensure that any mutation input can be predicted for. These include rules such as `*= S` which means that any synonymous mutation infers susceptibility (i.e any non-change in amino acids should remain susceptable), and `*? U` which means that any nonsynonymous mutation infers an unknown outcome. This means that any mutation passed to `piezo` using this catalogue can produce a prediction.
@@ -38,5 +41,5 @@ A full breakdown of skipped rows can be found in `skipped.tsv`, with the general
 
 Labels:
 * `Multiple mutations per row:` Is the result of skipping due to > 1 mutation in this row.
-* `Cut off` Is the result of skipping due to changes detailed past the 3' end of the gene.
+* `Cut off` Is the result of skipping due to changes detailed past the 3' end of the gene. There should only be 2 cases of this.
 * `Exists in >1 resistance category:` Is the result of skipping due to the mutation belonging to > 1 resistance category for a given drug.
