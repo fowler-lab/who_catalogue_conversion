@@ -1,7 +1,29 @@
 # Conversion of the WHO TB catalogue to GARC
 Convert mutations detailed within the [WHO TB catalogue](https://www.who.int/publications/i/item/9789240028173 "WHO TB catalogue") to [GARC](https://fowlerlab.org/?p=5642 "GARC") for the purpose of compatability with [piezo](https://github.com/oxfordmmm/piezo "piezo") for use as drug resistance prediction.
 
-## Indels
+A copy of the parsed catalogue is provided within this repo - see `WHO-UCN-GTB-PCI-2021.7.GARC.csv`
+
+## Requirements
+Requires [gumpy](https://github.com/oxfordmmm/gumpy "gumpy") for finding amino acid changes. Everything should be installable through pip:
+```
+pip install -r requirements.txt
+```
+
+## Running
+First time running will take a considerable amount of time (20+ minutes) due to consistent rebuilding of `gumpy.Gene` objects for mutations. After this, values will be cached to disk using pickle. Due to the security implications of the pickle module, **DO NOT SEND/RECIVE PICKLES**. They are blacklisted in the `.gitignore` for this reason.
+```
+python parse.py
+```
+
+### Development
+During future development, you may wish to force it to re-parse the data rather than using pickles. To do this, just add any argument to the script:
+```
+python parse.py <anything>
+```
+
+## Parsing notes
+Due to some issues in the way the WHO catalogue is built, there are a few issues which drove design decisions. The issues found are detailed below, along with the solutions currently in place.
+### Indels
 Within the WHO catalogue, the format of indel calls is somewhat ambiguous due to inconsistent positions of the indels, and that indels can be described in several ways when mixed with SNPs (which they often are within this catalogue). Furthermore, it is not uncommon for the WHO catalogue to detail long sequences of the same length for both `ref` and `alt`, which only consist of SNPs. It is also possible for the same mutation to be described through several different combinations of SNPs and indels.
 To standardise this, an approach for deciphering the indels had to be developed:
 
@@ -11,35 +33,29 @@ If there are repeating sections which are ambiguous, the first item is chosen as
 
 As long as there is a single indel within the sequence, this works. More than 1 indel in a sequence has not been observed
 
-## Requirements
-Requires [gumpy](https://github.com/oxfordmmm/gumpy "gumpy") for finding amino acid changes. Everything should be installable through pip:
-```
-pip install -r requirements.txt
-```
+### Multiple mutations per row
+This mainly arrises due to handling of the `Indels` detailed above. This results in a split of an `indel`, and any number of `snps` from a single row of the catalogue. However, there are also cases where a single row of the catalogue has no `indel`, but rather a series of `snps` - still producing multiple mutations per row.
 
-## Parsing
-Due to the unstable nature of the grammar used within the catalogue, it is simpler to parse the mutations and build from the ground up rather than translation. General rules are also added to ensure that any mutation input can be predicted for. These include rules such as `*= S` which means that any synonymous mutation infers susceptibility (i.e any non-change in amino acids should remain susceptable), and `*? U` which means that any nonsynonymous mutation infers an unknown outcome. This means that any mutation passed to `piezo` using this catalogue can produce a prediction.
-```
-python parse.py > skipped.tsv
-```
-This produces `output.csv` which is of a similar format to the catalogues ingested by piezo. This lacks the generalised rules which occur in some of the mutations denoted within [existing piezo catalogues](https://github.com/oxfordmmm/tuberculosis_amr_catalogues "existing piezo catalogues").
-`skipped.tsv` is also produced, which details some rows of the catalogue which were skipped for various issues (see below).
+As these arrise from allelic variant calling, and so imply that all mutations are required for the drug predictions. To accomodate this, an extension to GARC had to be made to allow for this chaining together of mutations. This is a very simple rule which states that any number of mutations can be joined together with `&` to produce a new valid mutation.
+E.g:
+    ['pncA@R140S', 'pncA@453_del_gttcggta'] --> 'pncA@R140S&pncA@453_del_gttcggta'
+For the sake of consistency, it is recommended that such mutations are sorted before joining, but this is also enforced within `piezo`, so is not required.
 
-## Issues
-There are some rows of the WHO TB catalogue which do not cleanly produce a singluar mutation for a singular row of the catalogue. There are cases where there are several SNPs within a single row, or a mixture of SNPs and an indel (as detailed above). This becomes an issue due to the fact that these mutations should therefore be coupled together - all mutations detailed in a row should be present for the resistance prediction.
-This makes it impossible to translate these rows to GARC as there is not support for chaining mutations like this, i.e something along the lines of `whiB6@a-77g & whiB6@-74_del_g` is not valid GARC syntax, and to extend GARC to handle such detail would involve serious work with all tools which utilise it.
-Therefore, rows which produce more than 1 mutation must be skipped within the output.
+Alterations had to be made within `piezo` and `gnomon` to accomodate such mutations, but should now be working.
 
-Furthermore, there are some rows which detail mutations past the 3' end of the gene, and so are not helpful and are also ommitted.
+### Mutations past the gene end
+There are a few cases where the catalogue details mutations which cross the gene end. This produces an issue as there is no other mutation at the genome level, and as one of the key assumptions made when building the catalogue was that such mutations (non-coding and non-promoter) do not confer resistance, we have opted to censor such mutations at the gene end.
+This means that the parsing attempts to parse the mutations in the same manner as usual, rejecting any which fall past the gene end.
+
+These cut off mutations are very rare, and only result in a single SNP being accepted as a valid mutation within the entire catalogue.
+
+**Note that this will produce some STDOUT lines where this happens when parsing.** These are intended for debugging, and also show what mutations are accepted from a row in these cases.
+
+### Mutations existing in >1 resistance category
+This occurs at several points within the catalogue, and are cases in which there are rows which parse to the same mutation which have different values for resistance for the same drug.
+For example, ['pncA@-5_del_g', 'pncA@317_del_t', 'pncA@386_del_atgt']  are both R and S for  PZA
+
+The current solution is to ignore this during parsing. It is possible that this will be resolved in a future version of the catalogue. This creates a catalogue which may contain >1 row for a single mutation's effect on a drug. Alterations have been made to piezo to deal with such a catalogue, and produce a prediction based on the most significant predicted value. 
+For example, `pncA@-5_del_g` has predictions of both `R` and `S` for `PZA`. Using a prioritisation of `R > U > S`, the final prediction will be `R`
 
 
-Moreover, there exist some rows which produce mutations which are placed in more than 1 resistance category for a drug. These may be distinct rows, but as the mutations are the same with different results, they also have to be ommitted. 
-
-E.g. gid@351_del_g is formed by `cgc -> cg @ 4407850`, but can also be formed by `gc -> c @ 4407851` - both giving deletion of the same `c` base in different rows. The former is accociated with susceptibility to streptomycin, whereas the latter is associated with resistance to streptomycin. This is due to the `interim` values used within the catalogue not concretely inferring resistance, so susceptibility must be selected instead.
-
-A full breakdown of skipped rows can be found in `skipped.tsv`, with the general format for rows being `label   gene    pos ref alt` with some exceptions such as for mutations in > 1 category, and added mutation data for rows with multiple mutations. 
-
-Labels:
-* `Multiple mutations per row:` Is the result of skipping due to > 1 mutation in this row.
-* `Cut off` Is the result of skipping due to changes detailed past the 3' end of the gene. There should only be 2 cases of this.
-* `Exists in >1 resistance category:` Is the result of skipping due to the mutation belonging to > 1 resistance category for a given drug.

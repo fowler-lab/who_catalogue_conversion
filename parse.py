@@ -1,9 +1,17 @@
-import numpy
-import pandas as pd
+'''Parse the WHO catalogue to GARC for use within piezo
 
-from tqdm import tqdm
+Use any argument to this script to force re-parsing rather than using pickles where available
+'''
+import json
+import os
+import pickle
+import re
+import sys
 
 import gumpy
+import numpy
+import pandas as pd
+from tqdm import tqdm
 
 
 def parse_who_catalog(filename):
@@ -40,12 +48,14 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
         if r is not None and a is not None and r != a:
             if (pos + index) - reference.genes[gene]["start"] < 0:
                 #Past the end of the gene so just return
-                print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
-                return []
-            if reference.genes[gene]["end"] - (pos + index) < 0 or reference.genes[gene]['codes_protein'] == False:
+                print(f"Cut off snp, returning {mutations} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
+                return mutations
+            if reference.genes[gene]["end"] - (pos + index) <= 0 or reference.genes[gene]['codes_protein'] == False:
+                if reference.genes[gene]["end"] - (pos + index) <= 0:
+                    p = reference.genes[gene]["end"] - (pos + index) - 1
                 #Promoter or non-coding so return the difference in nucleotides
                 r,a  = gumpy.Gene._complement([r, a])
-                mutations.append(gene + "@" + r + str(reference.genes[gene]["end"] - (pos + index)) + a)
+                mutations.append(gene + "@" + r + str(p) + a)
             else:
                 ref_seq[pos + index - 1] = a
                 
@@ -100,8 +110,8 @@ def snps(reference, gene, pos, ref, alt, masks):
         if r is not None and a is not None and r != a:
             if reference.genes[gene]["end"] - (pos + index ) <= 0:
                 #Past the end of the gene so just return
-                print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
-                return []
+                print(f"Cut off snp, returning {mutations} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
+                return mutations
             if (pos + index) - reference.genes[gene]["start"] < 0 or reference.genes[gene]['codes_protein'] == False:
                 #Promoter or non-coding so return the difference in nucleotides
                 mutations.append(gene + "@" + r + str((pos + index) - reference.genes[gene]["start"]) + a)
@@ -167,24 +177,32 @@ def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
     #Position with the best SNPs is the best position for the ins
     seq = [ref[i] for i in range(len(current)) if current[i] is None]
     if rev_comp:
-        p = reference.genes[gene]["end"] - (pos + start) - 1
+        p = reference.genes[gene]["end"] - (pos + start)
         r = ''.join(gumpy.Gene._complement(seq))
         snp = rev_comp_snp(reference, gene, pos, ref, current, masks)
-        if p > reference.genes[gene]["end"]:
-            print(p, pos, start, reference.genes[gene]["end"])
+        if p - 1 > reference.genes[gene]["end"] - reference.genes[gene]["start"]:
+            # print(p, pos, start, reference.genes[gene]["end"])
             #Del happened past the 3' end of the gene so ignore it
-            print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
+            print(f"Cut off del, returning {snp} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"],  sep="\t")
             return []
     else:
         p = pos - reference.genes[gene]["start"] + start
         r = ''.join(seq)
         snp = snps(reference, gene, pos, ref, current, masks)
-        if p > reference.genes[gene]["end"]:
-            print(p, pos, start, reference.genes[gene]["end"])
+        if p > reference.genes[gene]["end"] - reference.genes[gene]["start"]:
+            # print(p, pos, start, reference.genes[gene]["end"])
             #If the del happened past the 3' end of the gene, ignore it
-            print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
+            print(f"Cut off del, returning {snp} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
             return []
-    return snp + [gene + "@" + str(p) + "_del_" + r]
+    #Promoter adjustment to accomodate the -2,-1,1,2 indexing
+    if p <= 0:
+        p -= 1
+    #Rev comp adjustments
+    if rev_comp:
+        #Rev comp should count from the RHS not the LHS, and should be reversed...
+        return snp + [gene + "@" + str(p - len(r) + 1) + "_del_" + r[::-1]]
+    else:
+        return snp + [gene + "@" + str(p) + "_del_" + r]
 
 def snp_number(ref, alt):
     '''Helper function to find the SNP distance between two arrays, ignoring None values
@@ -235,21 +253,29 @@ def ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
     seq = [alt[i] for i in range(len(current)) if current[i] is None]
     alt1 = [alt[i] for i in range(len(current)) if current[i] is not None]
     if rev_comp:
-        p = reference.genes[gene]["end"] - (pos + start) - 1
+        p = reference.genes[gene]["end"] - (pos + start)
         a = ''.join(gumpy.Gene._complement(seq))
         snp = rev_comp_snp(reference, gene, pos, ref, alt1, masks)
-        if p > reference.genes[gene]["start"]:
+        if p - 1 > reference.genes[gene]["end"] - reference.genes[gene]["start"]:
             #Past the 3' end so ignore
-            print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
-            return []
+            print(f"Cut off ins, returning {snp} from", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
+            return snp
+        #-1 if promoter, +1 if not
+        if p <= 0:
+            p -= 1
+        else:
+            p += 1
     else:
         p = pos - reference.genes[gene]["start"] + start
         a = ''.join(seq)
         snp = snps(reference, gene, pos, ref, alt1, masks)
-        if p > reference.genes[gene]["end"]:
+        if p > reference.genes[gene]["end"] - reference.genes[gene]["start"]:
             #Past the 3' end so ignore
-            print("Cut off", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), sep="\t")
-            return []
+            print(f"Cut off ins, returning {snp} from", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
+            return snp
+    #Promoter adjustment to accomodate the -2,-1,1,2 indexing
+    if p <= 0:
+        p -= 1
     return snp + [gene + "@" + str(p) + "_ins_" + a]
 
 
@@ -312,14 +338,92 @@ def get_masks(reference, gene):
     mask = numpy.any(stacked_mask, axis=0)
     return stacked_mask, mask
 
-if __name__ == "__main__":
-    #Load the reference genome
-    # reference = gumpy.Genome.load("reference.json.gz")
-    reference = gumpy.Genome("../gumpy/config/NC_000962.3.gbk.gz", show_progress_bar=True)
+def addMetadata() -> None:
+    '''Add metadata from the other page of the catalogue to each row of the parsed catalogue
+    '''
+    #Get the mapping of GARC values to a variant value (from the catalogue)
+    garcToVariant = pickle.load(open("garcVariantMap.pkl", "rb"))
+    
+    #Load the GARC catalogue
+    catalogue = pd.read_csv("output.csv")
+    
+    #Load the WHO values for metadata
+    values = pd.read_excel("WHO-UCN-GTB-PCI-2021.7-eng.xlsx", sheet_name="Mutation_catalogue")
 
-    #Load the catalogue
-    data = parse_who_catalog("WHO-UCN-GTB-PCI-2021.7-eng.xlsx")
+    #Add the common names as these may be different names for the same nucleotide mutation
+    fixed = {name: [] for name in values.columns}
+    for _, row in values.iterrows():
+        row = row.to_dict()
+        variant = row['variant (common_name)']
+        #Quick check due to some NAN values
+        if isinstance(variant, str):
+            variants = variant.split(" ")
+            #For each name this variant has, add a row...
+            for var in variants:
+                #Change the variant name
+                row['variant (common_name)'] = var.strip()
+                #Add everything from this row
+                for key, val in row.items():
+                    fixed[key].append(val)
+        else:
+            for key, val in row.items():
+                fixed[key].append(val)
+    values = pd.DataFrame.from_dict(fixed)
+    # values['variant (common_name)'] = values['variant (common_name)'].apply(lambda x: x.split(" ")[0] if isinstance(x, str) else x)
 
+    #Iter the GARC catalogue, match the rows of values based on the variant and drug
+    evidences = []
+    others = []
+    for (_, row) in tqdm(list(catalogue.iterrows())):
+        #Detect generic rules and skip these as they do not have associated evidence
+        generic = re.compile(r"""
+                            ([a-zA-Z_0-9]+@) #Leading gene name
+                            ((\*\?)|(\*=)|(-?\*_indel))
+                            """, re.VERBOSE)
+        if generic.fullmatch(row['MUTATION']):
+            evidences.append(json.dumps({}))
+            others.append(json.dumps({}))
+            continue
+
+        drug = row['DRUG']
+        garc = row['MUTATION']
+        prediction = row['PREDICTION']
+
+        variant = garcToVariant[(garc, drug, prediction)]
+        
+        vals = values.loc[(values['variant (common_name)'] == variant) & (values['drug'] == drug)]
+        if len(vals) == 0:
+            #No records found, probably due to a synonymous mutation
+            evidences.append(json.dumps({}))
+            others.append(json.dumps({}))
+            continue
+
+        #Because the catalogue uses merged cells, the column names are not consistent. Equivalent to:
+        evidenceNames = ['Present_SOLO_R', 'Present_SOLO_SR', 'Present_S', 'Absent_S', 'Present_R', 'Absent_R']
+        evidenceFields = ['Unnamed: 5', 'Unnamed: 6', 'Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10']
+        evidenceNames = dict(zip(evidenceFields, evidenceNames))
+
+        evidences.append(json.dumps({evidenceNames[field]: vals[field].values[0] for field in evidenceFields}))
+
+        others.append(json.dumps({'FINAL_CONFIDENCE_GRADING': vals['FINAL CONFIDENCE GRADING'].values[0]}))
+
+    catalogue['EVIDENCE'] = evidences
+    catalogue['OTHER'] = others
+
+    catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
+
+def parse(reference: gumpy.Genome, data: pd.DataFrame) -> dict:
+    '''Parse the catalogue. Takes a long time due to gene rebuilding (25-40 mins)...
+    Dumps the output to a pickle, along with a map for rows to the `variants` column of the catalogue
+
+
+    Args:
+        reference (gumpy.Genome): Reference genome
+        data (pd.DataFrame): Loaded WHO catalogue
+
+    Returns:
+        dict: Dictionary of {drug: {'R': {mutations}, 'U': {mutations}, 'S': {mutations}}}
+    '''
     #The catalogue is grouped by gene, so we can store gene masks until they are no longer required
     masks = {}
 
@@ -348,9 +452,10 @@ if __name__ == "__main__":
             # "F": set()
             } for drug in drug_columns}
     genes = set()
+    garcToVariant = {} #Mapping of (GARC, drug, prediction) --> variant
 
-    #Iterate over the catalogue
-    for (index, row) in tqdm(data.iterrows()):
+    # Iterate over the catalogue
+    for (index, row) in tqdm(list(data.iterrows())):
         garc = []
         #Pull out gene name, pos, ref and alt
         gene = row["gene_name"]
@@ -371,10 +476,10 @@ if __name__ == "__main__":
             garc += to_garc(reference, gene, int(pos), ref, alt, masks)
             if len(garc) > 1:
                 #There is more than 1 mutation generated from this row, so skip it
-                print("Multiple mutations per row: ", gene, pos, ref, alt, garc, sep="\t")
-                continue
-            # except:
-            #     print(gene, int(pos), ref, alt)
+                # print("Multiple mutations per row: ", gene, pos, ref, alt, garc, sep="\t")
+                # continue
+                garc = ['&'.join(sorted(garc))]
+
         for drug in drug_columns:
             col = row[drug]
             drug = drug.split("_")[0]
@@ -384,21 +489,57 @@ if __name__ == "__main__":
             if "1)" in col:
                 # Resistance
                 category = "R"
-            elif "3)" in col:
+            elif "3)" in col or "2)" in col or "4)" in col:
                 # Uncertain
                 category = "U"
-            elif "2)" in col or "4)" in col or "5)" in col or col == "Synonymous":
+            elif  "5)" in col or col == "Synonymous":
                 # Not resistant
                 category = "S"
 
             for mutation in garc:
                 drugs[drug][category].add(mutation)
+                garcToVariant[(mutation, drug, category)] = row['variant']
+    
+    #Dump for easier testing
+    pickle.dump(drugs, open("drugs.pkl", "wb"))
+    pickle.dump(garcToVariant, open("garcVariantMap.pkl", "wb"))
+    return drugs
 
 
+if __name__ == "__main__":
+    #Use any argument to this to force re-parsing rather than using pickles
+
+    #Load the reference genome
+    if os.path.exists('reference.pkl'):
+        #If the pickled genome exists, use it
+        print("Found pickled reference genome")
+        reference = pickle.load(open("reference.pkl", "rb"))
+    else:
+        #Else load from scratch
+        print("Loading reference genome")
+        reference = gumpy.Genome("NC_000962.3.gbk", show_progress_bar=True)
+
+    #Load the catalogue
+    data = parse_who_catalog("WHO-UCN-GTB-PCI-2021.7-eng.xlsx")
+
+    #If the pickles already exist, use them
+    if os.path.exists('drugs.pkl') and os.path.exists('garcVariantMap.pkl') and len(sys.argv) == 1:
+        print("Found pickles, writing the output catalogue")
+        drugs = pickle.load(open("drugs.pkl", "rb"))
+    #Else, load
+    else:
+        print("No pickles found, re-parsing")
+        drugs = parse(reference, data)
 
 
-    seen_duplicates = set()
-    with open("output.csv", "w") as f:
+    #Find the genes associated with specific drug resistance
+    resistanceGenes = {drug: set() for drug in drugs.keys()}
+    for drug in drugs.keys():
+        for mutation in drugs[drug]['R']:
+            #These are just resistance mutations, so pull out gene names
+            resistanceGenes[drug].add(mutation.split("@")[0])
+
+    with open("WHO-UCN-GTB-PCI-2021.7.GARC.csv", "w") as f:
         header = "GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,PREDICTION_VALUES,DRUG,MUTATION,PREDICTION,SOURCE,EVIDENCE,OTHER\n"
         common_all = "NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,"
         f.write(header)
@@ -406,23 +547,17 @@ if __name__ == "__main__":
         for drug in drugs.keys():
             common = common_all + drug + ","
             #Write basic rules to cover all mutations not detailed here
-                #gene@*= S
-                #gene@*? U
-            for gene in sorted(list(genes)):
-                    f.write(common + gene+"@*=,S,{},{},{}\n")
+            if resistanceGenes[drug]:
+                #There are genes associated with resistance, so add generic U rules as appropriate
+                for gene in resistanceGenes[drug]:
                     f.write(common + gene+"@*?,U,{},{},{}\n")
-            for category in drugs[drug].keys():
-                #As there are some mutations which are R and another category,
-                #Remove all collisions...
-                m = drugs[drug][category]
-                original = m
-                for c in drugs[drug].keys():
-                    if c != category:
-                        m = m.difference(drugs[drug][c])
-                mutations = sorted(list(m))
-                for missed in original.difference(m).difference(seen_duplicates):
-                    print("Exists in >1 resistance category: ", missed, drug, sep="\t")
-                    seen_duplicates.add(missed)
+                    f.write(common + gene+"@*_indel,U,{},{},{}\n")
+                    f.write(common + gene+"@-*_indel,U,{},{},{}\n")
+                    if reference.genes[gene]['codes_protein']:
+                        f.write(common + gene+"@*=,S,{},{},{}\n")
 
-                for mutation in mutations:
+            for category in drugs[drug].keys():
+                for mutation in sorted(list(drugs[drug][category])):
                     f.write(common + mutation + "," + category + ",{},{},{}\n")
+    #Add the evidence JSON
+    addMetadata()
