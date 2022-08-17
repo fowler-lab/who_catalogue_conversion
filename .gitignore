@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+~$*
 
 # C extensions
 *.so
@@ -131,5 +132,7 @@ dmypy.json
 gumpy
 reference.json.gz
 *.csv
+!WHO-UCN-GTB-PCI-2021.7.GARC.csv
 .~lock*
 skipped.tsv
+*.pkl
