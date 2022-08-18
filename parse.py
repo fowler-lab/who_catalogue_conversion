@@ -378,7 +378,7 @@ def addMetadata() -> None:
         #Detect generic rules and skip these as they do not have associated evidence
         generic = re.compile(r"""
                             ([a-zA-Z_0-9]+@) #Leading gene name
-                            ((\*\?)|(\*=)|(-?\*_indel))
+                            ((-?\*\?)|(\*=)|(-?\*_indel))
                             """, re.VERBOSE)
         if generic.fullmatch(row['MUTATION']):
             evidences.append(json.dumps({}))
@@ -551,14 +551,37 @@ if __name__ == "__main__":
                 #There are genes associated with resistance, so add generic U rules as appropriate
                 for gene in resistanceGenes[drug]:
                     f.write(common + gene+"@*?,U,{},{},{}\n")
+                    f.write(common + gene+"@-*?,U,{},{},{}\n")
                     f.write(common + gene+"@*_indel,U,{},{},{}\n")
                     f.write(common + gene+"@-*_indel,U,{},{},{}\n")
                     if reference.genes[gene]['codes_protein']:
                         f.write(common + gene+"@*=,S,{},{},{}\n")
 
-                for category in drugs[drug].keys():
+                for category in sorted(list(drugs[drug].keys())):
                     for mutation in sorted(list(drugs[drug][category])):
                         if mutation.split("@")[0] in resistanceGenes[drug]:
+                            #Ignore mutations which are already covered by the generic rules
+                            if category == 'U':
+                                generic = re.compile(r"""
+                                                    ([a-zA-Z_0-9]+@) #Leading gene name
+                                                    (
+                                                        ([!ACDEFGHIKLMNOPQRSTVWXYZ][0-9]+[!ACDEFGHIKLMNOPQRSTVWXYZ]) #Non synonymous AA mutation
+                                                        |(-?[0-9]+_((ins)|(del))_[acgotxz]*) #Or indel
+                                                        |([acgotxz]-?[0-9]+[acgotxz]) #Or other SNP
+                                                    )
+                                                    """, re.VERBOSE)
+                                if generic.fullmatch(mutation):
+                                    #Matched a U generic so skip
+                                    continue
+                            if category == 'S':
+                                generic = re.compile(r"""
+                                                    ([a-zA-Z_0-9]+@) #Leading gene name
+                                                    ([0-9]+=)
+                                                    """, re.VERBOSE)
+                                if generic.fullmatch(mutation):
+                                    #Matched a generic S so skip
+                                    continue
+                            #Helpful mutation, so add it
                             f.write(common + mutation + "," + category + ",{},{},{}\n")
     #Add the evidence JSON
     addMetadata()
