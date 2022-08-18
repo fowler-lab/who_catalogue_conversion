@@ -345,7 +345,7 @@ def addMetadata() -> None:
     garcToVariant = pickle.load(open("garcVariantMap.pkl", "rb"))
     
     #Load the GARC catalogue
-    catalogue = pd.read_csv("output.csv")
+    catalogue = pd.read_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
     
     #Load the WHO values for metadata
     values = pd.read_excel("WHO-UCN-GTB-PCI-2021.7-eng.xlsx", sheet_name="Mutation_catalogue")
@@ -556,8 +556,9 @@ if __name__ == "__main__":
                     if reference.genes[gene]['codes_protein']:
                         f.write(common + gene+"@*=,S,{},{},{}\n")
 
-            for category in drugs[drug].keys():
-                for mutation in sorted(list(drugs[drug][category])):
-                    f.write(common + mutation + "," + category + ",{},{},{}\n")
+                for category in drugs[drug].keys():
+                    for mutation in sorted(list(drugs[drug][category])):
+                        if mutation.split("@")[0] in resistanceGenes[drug]:
+                            f.write(common + mutation + "," + category + ",{},{},{}\n")
     #Add the evidence JSON
     addMetadata()
