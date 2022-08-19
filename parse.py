@@ -81,10 +81,7 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
         for (pos_, r, a) in aa_mut:
             r = g.codon_to_amino_acid[r]
             a = g.codon_to_amino_acid[a]
-            if r == a:
-                mutations.append(gene + "@" + str(pos_) + "=")
-            else:
-                mutations.append(gene + "@" + r + str(pos_) + a)
+            mutations.append(gene + "@" + r + str(pos_) + a)
     return mutations
 
 def snps(reference, gene, pos, ref, alt, masks):
@@ -139,10 +136,7 @@ def snps(reference, gene, pos, ref, alt, masks):
         for (pos_, r, a) in aa_mut:
             r = g.codon_to_amino_acid[r]
             a = g.codon_to_amino_acid[a]
-            if r == a:
-                mutations.append(gene + "@" + str(pos_) + "=")
-            else:
-                mutations.append(gene + "@" + r + str(pos_) + a)
+            mutations.append(gene + "@" + r + str(pos_) + a)
     return mutations
 
 
@@ -562,25 +556,37 @@ if __name__ == "__main__":
                         if mutation.split("@")[0] in resistanceGenes[drug]:
                             #Ignore mutations which are already covered by the generic rules
                             if category == 'U':
-                                generic = re.compile(r"""
+                                indel = re.compile(r"""
                                                     ([a-zA-Z_0-9]+@) #Leading gene name
                                                     (
-                                                        ([!ACDEFGHIKLMNOPQRSTVWXYZ][0-9]+[!ACDEFGHIKLMNOPQRSTVWXYZ]) #Non synonymous AA mutation
-                                                        |(-?[0-9]+_((ins)|(del))_[acgotxz]*) #Or indel
-                                                        |([acgotxz]-?[0-9]+[acgotxz]) #Or other SNP
+                                                        (-?[0-9]+_((ins)|(del))_[acgotxz]*) #indel
                                                     )
                                                     """, re.VERBOSE)
-                                if generic.fullmatch(mutation):
-                                    #Matched a U generic so skip
+                                if indel.fullmatch(mutation):
+                                    #Matched an indel generic so skip
                                     continue
-                            if category == 'S':
-                                generic = re.compile(r"""
+                                #Checking for nonsynonymous SNPs
+                                nonsynon = re.compile(r"""
                                                     ([a-zA-Z_0-9]+@) #Leading gene name
-                                                    ([0-9]+=)
+                                                    (([!ACDEFGHIKLMNOPQRSTVWXYZacgotxz])-?[0-9]+([!ACDEFGHIKLMNOPQRSTVWXYZacgotxz])) #SNP
                                                     """, re.VERBOSE)
-                                if generic.fullmatch(mutation):
-                                    #Matched a generic S so skip
-                                    continue
+                                if nonsynon.fullmatch(mutation):
+                                    name, mut, base1, base2 = nonsynon.fullmatch(mutation).groups()
+                                    if base1 != base2:
+                                        #This matches the gene@*? or gene@-*? so skip
+                                        continue
+
+                            if category == 'S':
+                                #Checking for gene@*=
+                                synon = re.compile(r"""
+                                                    ([a-zA-Z_0-9]+@) #Leading gene name
+                                                    (([!ACDEFGHIKLMNOPQRSTVWXYZ])[0-9]+([!ACDEFGHIKLMNOPQRSTVWXYZ])) #SNP
+                                                    """, re.VERBOSE)
+                                if synon.fullmatch(mutation):
+                                    name, mut, base1, base2 = synon.fullmatch(mutation).groups()
+                                    if base1 == base2:
+                                        #Matches the synonymous mutation so skip
+                                        continue
                             #Helpful mutation, so add it
                             f.write(common + mutation + "," + category + ",{},{},{}\n")
     #Add the evidence JSON
