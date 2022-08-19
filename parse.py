@@ -480,13 +480,13 @@ def parse(reference: gumpy.Genome, data: pd.DataFrame) -> dict:
             category = None
             if pd.isnull(col):
                 continue
-            if "1)" in col:
+            if "1)" in col or "2)" in col:
                 # Resistance
                 category = "R"
-            elif "3)" in col or "2)" in col or "4)" in col:
+            elif "3)" in col:
                 # Uncertain
                 category = "U"
-            elif  "5)" in col or col == "Synonymous":
+            elif  "4)" in col or "5)" in col or col == "Synonymous":
                 # Not resistant
                 category = "S"
 
