@@ -270,7 +270,10 @@ def ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
     #Promoter adjustment to accomodate the -2,-1,1,2 indexing
     if p <= 0:
         p -= 1
-    return snp + [gene + "@" + str(p) + "_ins_" + a]
+    if rev_comp:
+        return snp + [gene + "@" + str(p) + "_ins_" + a[::-1]]
+    else:
+        return snp + [gene + "@" + str(p) + "_ins_" + a]
 
 
 def to_garc(reference, gene, pos, ref, alt, masks):
