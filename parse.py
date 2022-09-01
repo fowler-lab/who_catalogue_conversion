@@ -109,9 +109,13 @@ def snps(reference, gene, pos, ref, alt, masks):
                 #Past the end of the gene so just return
                 print(f"Cut off snp, returning {mutations} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
                 return mutations
-            if (pos + index) - reference.genes[gene]["start"] < 0 or reference.genes[gene]['codes_protein'] == False:
-                #Promoter or non-coding so return the difference in nucleotides
+            if (pos + index) - reference.genes[gene]["start"] < 0:
+                #Promoter so return the difference in nucleotides
                 mutations.append(gene + "@" + r + str((pos + index) - reference.genes[gene]["start"]) + a)
+            if reference.genes[gene]['codes_protein'] == False:
+                #Non coding so return the difference in nucleotides adjusting for promoter indexing
+                mutations.append(gene + "@" + r + str((pos + index + 1) - reference.genes[gene]["start"]) + a)
+
             else:
                 ref_seq[pos + index - 1] = a
     if reference.genes[gene]['codes_protein']:
