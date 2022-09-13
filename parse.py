@@ -2,6 +2,7 @@
 
 Use any argument to this script to force re-parsing rather than using pickles where available
 '''
+import copy
 import json
 import os
 import pickle
@@ -390,6 +391,10 @@ def addMetadata() -> None:
         garc = row['MUTATION']
         prediction = row['PREDICTION']
 
+        if drug == "LFX" and "gyr" in garc:
+            #This is an LFX row added because of an expert rule, so pull out the metadata for the original row
+            drug = "MXF"
+
         variant = garcToVariant[(garc, drug, prediction)]
         
         vals = values.loc[(values['variant (common_name)'] == variant) & (values['drug'] == drug)]
@@ -412,6 +417,15 @@ def addMetadata() -> None:
     catalogue['OTHER'] = others
 
     catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
+
+def addExpertRules() -> None:
+    '''Add expert rules which are separate from the WHO catalogue. 
+    These are stored in a csv of the same format, so just concat
+    '''
+    catalogue = pd.read_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
+    expert = pd.read_csv("expertRules.csv")
+    result = pd.concat([catalogue, expert])
+    result.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
 
 def parse(reference: gumpy.Genome, data: pd.DataFrame) -> dict:
     '''Parse the catalogue. Takes a long time due to gene rebuilding (25-40 mins)...
@@ -506,6 +520,81 @@ def parse(reference: gumpy.Genome, data: pd.DataFrame) -> dict:
     pickle.dump(garcToVariant, open("garcVariantMap.pkl", "wb"))
     return drugs
 
+def addExtras(reference: gumpy.Genome) -> None:
+    '''Once the catalogue has been parsed correctly, there will be some mutations which also lie within other genes
+    This finds them and adds them to the catalogue. Specifically, this checks for promoter SNPs which could be attributed
+    to other genes, especially in cases where the promoter position is beyond the arbitrary internal limits of gumpy.
+
+    Args:
+        reference (gumpy.Genome): Reference genome
+    '''
+    catalogue = pd.read_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
+    toAdd = {column: [] for column in catalogue}
+    for _, row in catalogue.iterrows():
+        mut = row['MUTATION']
+        #Check for promoter
+        if "-" not in mut:
+            continue
+        #Check for default rules/multi for skipping
+        if "*" in mut or "?" in mut or "&" in mut or "indel" in mut:
+            continue
+        promoter = re.compile(r"""
+                            ([a-zA-Z0-9_]+)@ #Leading gene name
+                            ([a-z])(-[0-9]+)([a-z])
+                            """, re.VERBOSE)
+        if promoter.fullmatch(mut):
+            gene, ref, pos, alt = promoter.fullmatch(mut).groups()
+            pos = int(pos)
+            print(gene, ref, pos, alt)
+            sample = copy.deepcopy(reference)
+            
+            #Place the mutation within the genome based on the gene coordinates
+            #Then regardless of what gene it started in, we can pull out others
+            if reference.genes[gene]['reverse_complement']:
+                #Revcomp genes' promoters will be past the `gene end`
+                geneEnd = reference.genes[gene]['end']
+                ref_ = ''.join(gumpy.Gene._complement(ref))
+                alt_ = ''.join(gumpy.Gene._complement(alt))
+                pos_ = geneEnd-pos-1
+                assert reference.nucleotide_sequence[reference.nucleotide_index == geneEnd-pos-1] == ref_, "Ref does not match the genome..."
+                sample.nucleotide_sequence[reference.nucleotide_index == geneEnd-pos-1] = alt_
+            else:
+                geneStart = reference.genes[gene]['start']
+                pos_ = geneStart+pos
+                assert reference.nucleotide_sequence[reference.nucleotide_index == geneStart+pos] == ref, "Ref does not match the genome..."
+                sample.nucleotide_sequence[reference.nucleotide_index == geneStart+pos] = alt
+            
+            #The only mutations between ref and sample are this SNP
+            #So pull out all available mutations (ignoring the original gene)
+            mutations = []
+            #Get genes at this position
+            possible = [reference.stacked_gene_name[i][pos_] for i in range(len(reference.stacked_gene_name)) if reference.stacked_gene_name[i][pos_] != '']
+            for g in possible:
+                print("Checking :",g)
+                if g == gene:
+                    continue
+                diff = reference.build_gene(g) - sample.build_gene(g)
+                m = diff.mutations
+                if m:
+                    for mut_ in m:
+                        mutations.append(g+"@"+mut_)
+            
+            #Make them neat catalouge rows to add
+            for m in mutations:
+                for col in catalogue:
+                    if col == "MUTATION":
+                        toAdd[col].append(m)
+                    else:
+                        toAdd[col].append(row[col])
+    #Convert toAdd to dataframe and concat with catalogue
+    toAdd = pd.DataFrame(toAdd)
+    catalogue = pd.concat([catalogue, toAdd])
+    catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
+    
+
+
+
+        
 
 if __name__ == "__main__":
     #Use any argument to this to force re-parsing rather than using pickles
@@ -596,5 +685,21 @@ if __name__ == "__main__":
                                         continue
                             #Helpful mutation, so add it
                             f.write(common + mutation + "," + category + ",{},{},{}\n")
+                            #Check for an expert rule that gyrA/B@* --> MXF resistance = gyrA/B@* --> LFX resistance
+                            if drug == "MXF" and category == "R":
+                                expert = re.compile(r"""
+                                                    gyr[AB] #Leading gene name
+                                                    @(.+) #Any mutation
+                                                    """, re.VERBOSE)
+                                if expert.fullmatch(mutation):
+                                    #Match so add the LFX resistance
+                                    f.write(common_all + "LFX," + mutation + "," + category + ",{},{},{}\n")
+
     #Add the evidence JSON
     addMetadata()
+
+    #Add expert rules
+    addExpertRules()
+
+    #Add the extras for cases where genes overlap at mutations
+    addExtras(reference)

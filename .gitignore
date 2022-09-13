@@ -136,3 +136,5 @@ reference.json.gz
 .~lock*
 skipped.tsv
 *.pkl
+
+!expertRules.csv

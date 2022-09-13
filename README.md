@@ -58,4 +58,24 @@ For example, ['pncA@-5_del_g', 'pncA@317_del_t', 'pncA@386_del_atgt']  are both 
 The current solution is to ignore this during parsing. It is possible that this will be resolved in a future version of the catalogue. This creates a catalogue which may contain >1 row for a single mutation's effect on a drug. Alterations have been made to piezo to deal with such a catalogue, and produce a prediction based on the most significant predicted value. 
 For example, `pncA@-5_del_g` has predictions of both `R` and `S` for `PZA`. Using a prioritisation of `R > U > S`, the final prediction will be `R`
 
+## Expert rules
+Separate from the catalogue, there are a set of `expert rules` which support it. The below table maps row numbers (inclusive) of `expertRules.csv` to the associated expert rule. There are further rules based on literature and similar within the report, but these are all already included within the parsed catalogue.
 
+| Row start | Row end | Expert rule |
+| --------- | ------- | ----------- |
+| 2 | 3 | Borderline rpoB mutations --> RIF R |
+| 4 | 103 | Non-synonymous RRDR mutations --> RIF RI | 
+| 104 | 105 | Premature stop codon or indel in katG --> INH RI |
+| 106 | 107 | Premature stop codon or indel in pncA --> PZA RI |
+| 108 | 109 | Premature stop codon or indel in gid --> STM RI |
+| 110 | 111 | Premature stop codon or indel in ethA --> ETH RI |
+| 112 | 116 | According to previous WHO guidance not already in the catalogue |
+| 117 | 118 | From literature, not already in the catalogue |
+| - | - | Any mutation within gyrA/B which confers R --> LFX R |
+
+### Not included
+Some rules cannot be included due to limitations of GARC:
+
+| Rule | Drug | Prediction |
+| ---- | ---- | ---------- |
+| RIF resistance & (pncA@*? or pncA@*_indel) | PZA | R |
