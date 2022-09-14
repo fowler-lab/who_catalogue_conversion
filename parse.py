@@ -416,7 +416,7 @@ def addMetadata() -> None:
     catalogue['EVIDENCE'] = evidences
     catalogue['OTHER'] = others
 
-    catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
+    catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
 
 def addExpertRules() -> None:
     '''Add expert rules which are separate from the WHO catalogue. 
@@ -710,15 +710,23 @@ if __name__ == "__main__":
                                         continue
                             #Helpful mutation, so add it
                             f.write(common + mutation + "," + category + ",{},{},{}\n")
-                            #Check for an expert rule that gyrA/B@* --> MXF resistance = gyrA/B@* --> LFX resistance
+                            #Check for an expert rule that gyrA/B@* --> MXF resistance = gyrA/B@* --> LEV resistance and vice versa
                             if drug == "MXF" and category == "R":
                                 expert = re.compile(r"""
                                                     gyr[AB] #Leading gene name
                                                     @(.+) #Any mutation
                                                     """, re.VERBOSE)
                                 if expert.fullmatch(mutation):
-                                    #Match so add the LFX resistance
-                                    f.write(common_all + "LFX," + mutation + "," + category + ",{},{},{}\n")
+                                    #Match so add the LEV resistance
+                                    f.write(common_all + "LEV," + mutation + "," + category + ",{},{},{}\n")
+                            if drug == "LEV" and category == "R":
+                                expert = re.compile(r"""
+                                                    gyr[AB] #Leading gene name
+                                                    @(.+) #Any mutation
+                                                    """, re.VERBOSE)
+                                if expert.fullmatch(mutation):
+                                    #Match so add the LEV resistance
+                                    f.write(common_all + "MXF," + mutation + "," + category + ",{},{},{}\n")
 
     #Add the evidence JSON
     addMetadata()
