@@ -70,7 +70,8 @@ Separate from the catalogue, there are a set of `expert rules` which support it.
 | 108 | 109 | Premature stop codon or indel in gid --> STM RI |
 | 110 | 111 | Premature stop codon or indel in ethA --> ETH RI |
 | 112 | 116 | According to previous WHO guidance not already in the catalogue |
-| 117 | 118 | From literature, not already in the catalogue |
+| 117 | 117 | Alternate form of row above (pncA@-126_del_c) |
+| 116 | 119 | From literature, not already in the catalogue |
 | - | - | Any mutation within gyrA/B which confers R --> LFX R |
 
 ### Not included

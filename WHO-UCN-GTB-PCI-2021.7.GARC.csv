@@ -142,16 +142,16 @@ Unnamed: 0,GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,
 140.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,RIF,rpoB@V695L,S,{},"{""Present_SOLO_R"": 1, ""Present_SOLO_SR"": 53, ""Present_S"": 55, ""Absent_S"": 20207, ""Present_R"": 52, ""Absent_R"": 6678}","{""FINAL_CONFIDENCE_GRADING"": ""5) Not assoc w R""}"
 141.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,RIF,rpoB@a-261g,S,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 1, ""Present_S"": 523, ""Absent_S"": 19739, ""Present_R"": 5, ""Absent_R"": 207}","{""FINAL_CONFIDENCE_GRADING"": ""5) Not assoc w R""}"
 142.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,RIF,rpoB@c-61t,S,{},"{""Present_SOLO_R"": 23, ""Present_SOLO_SR"": 3781, ""Present_S"": 3870, ""Absent_S"": 16392, ""Present_R"": 635, ""Absent_R"": 6095}","{""FINAL_CONFIDENCE_GRADING"": ""5) Not assoc w R""}"
-143.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@*?,U,{},{},{}
-144.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@-*?,U,{},{},{}
-145.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@*_indel,U,{},{},{}
-146.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@-*_indel,U,{},{},{}
-147.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@*=,S,{},{},{}
-148.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@*?,U,{},{},{}
-149.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@-*?,U,{},{},{}
-150.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@*_indel,U,{},{},{}
-151.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@-*_indel,U,{},{},{}
-152.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@*=,S,{},{},{}
+143.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@*?,U,{},{},{}
+144.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@-*?,U,{},{},{}
+145.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@*_indel,U,{},{},{}
+146.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@-*_indel,U,{},{},{}
+147.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@*=,S,{},{},{}
+148.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@*?,U,{},{},{}
+149.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@-*?,U,{},{},{}
+150.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@*_indel,U,{},{},{}
+151.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@-*_indel,U,{},{},{}
+152.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@*=,S,{},{},{}
 153.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@a-778g,R,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 1, ""Absent_S"": 22136, ""Present_R"": 0, ""Absent_R"": 12172}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
 154.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@c-777t,R,{},"{""Present_SOLO_R"": 755, ""Present_SOLO_SR"": 912, ""Present_S"": 172, ""Absent_S"": 21965, ""Present_R"": 2290, ""Absent_R"": 9882}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 155.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@g-154a,R,{},"{""Present_SOLO_R"": 101, ""Present_SOLO_SR"": 149, ""Present_S"": 50, ""Absent_S"": 22087, ""Present_R"": 387, ""Absent_R"": 11785}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
@@ -286,16 +286,16 @@ Unnamed: 0,GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,
 284.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@-512_del_gatt&katG@c-508t&katG@t-490c,U,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 1, ""Absent_S"": 22136, ""Present_R"": 0, ""Absent_R"": 480}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
 285.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@-85_del_ctat&katG@g-81t,U,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 1, ""Absent_S"": 22136, ""Present_R"": 0, ""Absent_R"": 480}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
 286.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,katG@V1V,U,{},"{""Present_SOLO_R"": 4, ""Present_SOLO_SR"": 4, ""Present_S"": 0, ""Absent_S"": 22137, ""Present_R"": 4, ""Absent_R"": 12168}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
-287.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@*?,U,{},{},{}
-288.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@-*?,U,{},{},{}
-289.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@*_indel,U,{},{},{}
-290.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@-*_indel,U,{},{},{}
-291.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@*=,S,{},{},{}
-292.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@*?,U,{},{},{}
-293.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@-*?,U,{},{},{}
-294.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@*_indel,U,{},{},{}
-295.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@-*_indel,U,{},{},{}
-296.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@*=,S,{},{},{}
+287.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@*?,U,{},{},{}
+288.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@-*?,U,{},{},{}
+289.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@*_indel,U,{},{},{}
+290.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@-*_indel,U,{},{},{}
+291.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@*=,S,{},{},{}
+292.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@*?,U,{},{},{}
+293.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@-*?,U,{},{},{}
+294.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@*_indel,U,{},{},{}
+295.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@-*_indel,U,{},{},{}
+296.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@*=,S,{},{},{}
 297.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embA@c-12t,R,{},"{""Present_SOLO_R"": 84, ""Present_SOLO_SR"": 162, ""Present_S"": 99, ""Absent_S"": 25709, ""Present_R"": 238, ""Absent_R"": 4662}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 298.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@D328Y,R,{},"{""Present_SOLO_R"": 13, ""Present_SOLO_SR"": 16, ""Present_S"": 3, ""Absent_S"": 25805, ""Present_R"": 24, ""Absent_R"": 4876}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 299.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@D354A,R,{},"{""Present_SOLO_R"": 189, ""Present_SOLO_SR"": 329, ""Present_S"": 153, ""Absent_S"": 25655, ""Present_R"": 236, ""Absent_R"": 4664}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
@@ -673,16 +673,16 @@ Unnamed: 0,GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,
 671.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,PZA,pncA@V21A,S,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 5, ""Present_S"": 6, ""Absent_S"": 13567, ""Present_R"": 1, ""Absent_R"": 2328}","{""FINAL_CONFIDENCE_GRADING"": ""4) Not assoc w R - Interim""}"
 672.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,PZA,pncA@g-33a,S,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 5, ""Present_S"": 5, ""Absent_S"": 13568, ""Present_R"": 0, ""Absent_R"": 2329}","{""FINAL_CONFIDENCE_GRADING"": ""4) Not assoc w R - Interim""}"
 673.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,PZA,pncA@t-60g,S,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 3, ""Absent_S"": 13570, ""Present_R"": 0, ""Absent_R"": 458}","{""FINAL_CONFIDENCE_GRADING"": ""4) Not assoc w R - Interim""}"
-674.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@*?,U,{},{},{}
-675.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@-*?,U,{},{},{}
-676.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@*_indel,U,{},{},{}
-677.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@-*_indel,U,{},{},{}
-678.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@*=,S,{},{},{}
-679.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@*?,U,{},{},{}
-680.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@-*?,U,{},{},{}
-681.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@*_indel,U,{},{},{}
-682.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@-*_indel,U,{},{},{}
-683.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@*=,S,{},{},{}
+674.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@*?,U,{},{},{}
+675.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@-*?,U,{},{},{}
+676.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@*_indel,U,{},{},{}
+677.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@-*_indel,U,{},{},{}
+678.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@*=,S,{},{},{}
+679.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@*?,U,{},{},{}
+680.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@-*?,U,{},{},{}
+681.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@*_indel,U,{},{},{}
+682.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@-*_indel,U,{},{},{}
+683.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@*=,S,{},{},{}
 684.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@A90V,R,{},"{""Present_SOLO_R"": 590, ""Present_SOLO_SR"": 658, ""Present_S"": 72, ""Absent_S"": 15097, ""Present_R"": 679, ""Absent_R"": 2429}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 685.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@D94A,R,{},"{""Present_SOLO_R"": 181, ""Present_SOLO_SR"": 207, ""Present_S"": 29, ""Absent_S"": 15140, ""Present_R"": 228, ""Absent_R"": 2880}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 686.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@D94G,R,{},"{""Present_SOLO_R"": 1133, ""Present_SOLO_SR"": 1181, ""Present_S"": 51, ""Absent_S"": 15118, ""Present_R"": 1190, ""Absent_R"": 1918}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
@@ -715,16 +715,16 @@ Unnamed: 0,GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,
 713.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@c-165t,S,{},"{""Present_SOLO_R"": 7, ""Present_SOLO_SR"": 374, ""Present_S"": 367, ""Absent_S"": 7919, ""Present_R"": 7, ""Absent_R"": 129}","{""FINAL_CONFIDENCE_GRADING"": ""5) Not assoc w R""}"
 714.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrA@A434A&gyrA@A445A&gyrA@E447E&gyrA@L440L&gyrA@R441R&gyrA@R442R&gyrA@R448R,U,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 1, ""Absent_S"": 15168, ""Present_R"": 0, ""Absent_R"": 3108}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
 715.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LEV,gyrB@D669D&gyrB@D674D&gyrB@F662F&gyrB@K668K&gyrB@L673L&gyrB@N666N&gyrB@R659R&gyrB@R671R&gyrB@V675V,U,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 1, ""Absent_S"": 15168, ""Present_R"": 0, ""Absent_R"": 3108}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
-716.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@*?,U,{},{},{}
-717.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@-*?,U,{},{},{}
-718.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@*_indel,U,{},{},{}
-719.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@-*_indel,U,{},{},{}
-720.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@*=,S,{},{},{}
-721.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrB@*?,U,{},{},{}
-722.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrB@-*?,U,{},{},{}
-723.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrB@*_indel,U,{},{},{}
-724.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrB@-*_indel,U,{},{},{}
-725.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrB@*=,S,{},{},{}
+716.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrB@*?,U,{},{},{}
+717.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrB@-*?,U,{},{},{}
+718.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrB@*_indel,U,{},{},{}
+719.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrB@-*_indel,U,{},{},{}
+720.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrB@*=,S,{},{},{}
+721.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@*?,U,{},{},{}
+722.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@-*?,U,{},{},{}
+723.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@*_indel,U,{},{},{}
+724.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@-*_indel,U,{},{},{}
+725.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@*=,S,{},{},{}
 726.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@A90V,R,{},"{""Present_SOLO_R"": 253, ""Present_SOLO_SR"": 598, ""Present_S"": 353, ""Absent_S"": 11129, ""Present_R"": 323, ""Absent_R"": 1546}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 727.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,LFX,gyrA@A90V,R,{},"{""Present_SOLO_R"": 253, ""Present_SOLO_SR"": 598, ""Present_S"": 353, ""Absent_S"": 11129, ""Present_R"": 323, ""Absent_R"": 1546}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 728.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,MXF,gyrA@D94A,R,{},"{""Present_SOLO_R"": 89, ""Present_SOLO_SR"": 187, ""Present_S"": 105, ""Absent_S"": 11377, ""Present_R"": 125, ""Absent_R"": 1744}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
@@ -778,15 +778,15 @@ Unnamed: 0,GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,
 776.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,DLM,ddn@-*_indel,U,{},{},{}
 777.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,DLM,ddn@*=,S,{},{},{}
 778.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,DLM,ddn@L49P,R,{},"{""Present_SOLO_R"": 5, ""Present_SOLO_SR"": 6, ""Present_S"": 1, ""Absent_S"": 7695, ""Present_R"": 5, ""Absent_R"": 77}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
-779.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@*?,U,{},{},{}
-780.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@-*?,U,{},{},{}
-781.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@*_indel,U,{},{},{}
-782.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@-*_indel,U,{},{},{}
-783.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@*=,S,{},{},{}
-784.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@*?,U,{},{},{}
-785.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@-*?,U,{},{},{}
-786.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@*_indel,U,{},{},{}
-787.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@-*_indel,U,{},{},{}
+779.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@*?,U,{},{},{}
+780.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@-*?,U,{},{},{}
+781.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@*_indel,U,{},{},{}
+782.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@-*_indel,U,{},{},{}
+783.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@*?,U,{},{},{}
+784.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@-*?,U,{},{},{}
+785.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@*_indel,U,{},{},{}
+786.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@-*_indel,U,{},{},{}
+787.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@*=,S,{},{},{}
 788.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,eis@c-14t,R,{},"{""Present_SOLO_R"": 28, ""Present_SOLO_SR"": 77, ""Present_S"": 51, ""Absent_S"": 7325, ""Present_R"": 32, ""Absent_R"": 632}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 789.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@a1401g,R,{},"{""Present_SOLO_R"": 918, ""Present_SOLO_SR"": 966, ""Present_S"": 50, ""Absent_S"": 15640, ""Present_R"": 939, ""Absent_R"": 349}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 790.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@c1402t,R,{},"{""Present_SOLO_R"": 4, ""Present_SOLO_SR"": 13, ""Present_S"": 10, ""Absent_S"": 15680, ""Present_R"": 5, ""Absent_R"": 1283}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
@@ -889,20 +889,20 @@ Unnamed: 0,GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,
 887.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@t-77c&rrs@t-78c,U,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 1, ""Present_S"": 1, ""Absent_S"": 15689, ""Present_R"": 0, ""Absent_R"": 1288}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
 888.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@t-78c&rrs@t-79c,U,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 1, ""Present_S"": 1, ""Absent_S"": 15689, ""Present_R"": 0, ""Absent_R"": 1288}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
 889.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,AMI,rrs@t-91g&rrs@t-92g,U,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 4, ""Absent_S"": 15686, ""Present_R"": 0, ""Absent_R"": 1288}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
-890.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rpsL@*?,U,{},{},{}
-891.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rpsL@-*?,U,{},{},{}
-892.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rpsL@*_indel,U,{},{},{}
-893.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rpsL@-*_indel,U,{},{},{}
-894.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rpsL@*=,S,{},{},{}
-895.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@*?,U,{},{},{}
-896.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@-*?,U,{},{},{}
-897.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@*_indel,U,{},{},{}
-898.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@-*_indel,U,{},{},{}
-899.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@*=,S,{},{},{}
-900.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@*?,U,{},{},{}
-901.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@-*?,U,{},{},{}
-902.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@*_indel,U,{},{},{}
-903.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@-*_indel,U,{},{},{}
+890.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@*?,U,{},{},{}
+891.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@-*?,U,{},{},{}
+892.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@*_indel,U,{},{},{}
+893.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@-*_indel,U,{},{},{}
+894.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@*?,U,{},{},{}
+895.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@-*?,U,{},{},{}
+896.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@*_indel,U,{},{},{}
+897.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@-*_indel,U,{},{},{}
+898.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@*=,S,{},{},{}
+899.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rpsL@*?,U,{},{},{}
+900.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rpsL@-*?,U,{},{},{}
+901.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rpsL@*_indel,U,{},{},{}
+902.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rpsL@-*_indel,U,{},{},{}
+903.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rpsL@*=,S,{},{},{}
 904.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@102_del_g,R,{},"{""Present_SOLO_R"": 43, ""Present_SOLO_SR"": 73, ""Present_S"": 31, ""Absent_S"": 9318, ""Present_R"": 55, ""Absent_R"": 4580}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 905.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@103_ins_g,R,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 1, ""Present_S"": 1, ""Absent_S"": 9348, ""Present_R"": 0, ""Absent_R"": 4635}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
 906.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,gid@108_del_g,R,{},"{""Present_SOLO_R"": 1, ""Present_SOLO_SR"": 1, ""Present_S"": 0, ""Absent_S"": 9349, ""Present_R"": 1, ""Absent_R"": 4634}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
@@ -1149,16 +1149,16 @@ Unnamed: 0,GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,
 1147.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@t-77c&rrs@t-78c,U,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 0, ""Absent_S"": 9349, ""Present_R"": 1, ""Absent_R"": 4634}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
 1148.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@t-88c&rrs@t-89c,U,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 1, ""Present_S"": 1, ""Absent_S"": 9348, ""Present_R"": 0, ""Absent_R"": 4635}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
 1149.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,STM,rrs@t-91g&rrs@t-92g,U,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 2, ""Absent_S"": 9347, ""Present_R"": 0, ""Absent_R"": 4635}","{""FINAL_CONFIDENCE_GRADING"": ""3) Uncertain significance""}"
-1150.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@*?,U,{},{},{}
-1151.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@-*?,U,{},{},{}
-1152.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@*_indel,U,{},{},{}
-1153.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@-*_indel,U,{},{},{}
-1154.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@*=,S,{},{},{}
-1155.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@*?,U,{},{},{}
-1156.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@-*?,U,{},{},{}
-1157.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@*_indel,U,{},{},{}
-1158.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@-*_indel,U,{},{},{}
-1159.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@*=,S,{},{},{}
+1150.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@*?,U,{},{},{}
+1151.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@-*?,U,{},{},{}
+1152.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@*_indel,U,{},{},{}
+1153.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@-*_indel,U,{},{},{}
+1154.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@*=,S,{},{},{}
+1155.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@*?,U,{},{},{}
+1156.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@-*?,U,{},{},{}
+1157.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@*_indel,U,{},{},{}
+1158.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@-*_indel,U,{},{},{}
+1159.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@*=,S,{},{},{}
 1160.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@1010_del_t,R,{},"{""Present_SOLO_R"": 3, ""Present_SOLO_SR"": 6, ""Present_S"": 4, ""Absent_S"": 10949, ""Present_R"": 3, ""Absent_R"": 2962}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
 1161.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@1016_del_tta,R,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 0, ""Absent_S"": 10953, ""Present_R"": 1, ""Absent_R"": 2964}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
 1162.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,ethA@1019_ins_tta,R,{},"{""Present_SOLO_R"": 1, ""Present_SOLO_SR"": 1, ""Present_S"": 0, ""Absent_S"": 10953, ""Present_R"": 1, ""Absent_R"": 2964}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
@@ -1479,15 +1479,15 @@ Unnamed: 0,GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,
 1477.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@g-154a,R,{},"{""Present_SOLO_R"": 61, ""Present_SOLO_SR"": 101, ""Present_S"": 47, ""Absent_S"": 10906, ""Present_R"": 175, ""Absent_R"": 2790}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
 1478.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@t-770a,R,{},"{""Present_SOLO_R"": 5, ""Present_SOLO_SR"": 11, ""Present_S"": 18, ""Absent_S"": 10935, ""Present_R"": 42, ""Absent_R"": 2923}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
 1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,inhA@t-770c,R,{},"{""Present_SOLO_R"": 9, ""Present_SOLO_SR"": 22, ""Present_S"": 36, ""Absent_S"": 10917, ""Present_R"": 66, ""Absent_R"": 2899}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
-1480.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@*?,U,{},{},{}
-1481.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@-*?,U,{},{},{}
-1482.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@*_indel,U,{},{},{}
-1483.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@-*_indel,U,{},{},{}
-1484.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@*=,S,{},{},{}
-1485.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,rrs@*?,U,{},{},{}
-1486.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,rrs@-*?,U,{},{},{}
-1487.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,rrs@*_indel,U,{},{},{}
-1488.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,rrs@-*_indel,U,{},{},{}
+1480.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,rrs@*?,U,{},{},{}
+1481.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,rrs@-*?,U,{},{},{}
+1482.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,rrs@*_indel,U,{},{},{}
+1483.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,rrs@-*_indel,U,{},{},{}
+1484.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@*?,U,{},{},{}
+1485.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@-*?,U,{},{},{}
+1486.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@*_indel,U,{},{},{}
+1487.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@-*_indel,U,{},{},{}
+1488.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@*=,S,{},{},{}
 1489.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@-8_del_c,R,{},"{""Present_SOLO_R"": 7, ""Present_SOLO_SR"": 8, ""Present_S"": 1, ""Absent_S"": 14672, ""Present_R"": 7, ""Absent_R"": 1474}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 1490.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@c-12t,R,{},"{""Present_SOLO_R"": 75, ""Present_SOLO_SR"": 205, ""Present_S"": 133, ""Absent_S"": 14540, ""Present_R"": 90, ""Absent_R"": 1391}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
 1491.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,KAN,eis@c-14t,R,{},"{""Present_SOLO_R"": 63, ""Present_SOLO_SR"": 81, ""Present_S"": 20, ""Absent_S"": 14653, ""Present_R"": 70, ""Absent_R"": 1411}","{""FINAL_CONFIDENCE_GRADING"": ""1) Assoc w R""}"
@@ -1819,6 +1819,7 @@ Unnamed: 0,GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,
 ,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,PZA,pncA@T135N,R,{},{},{}
 ,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,inhA@T4I,S,{},{},{}
 ,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,PZA,pncA@-126_del_c,S,{},{},{}
+,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,PZA,Rv2044c@223_del_c,S,{},{},{}
 ,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@Y813G,S,{},{},{}
 ,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,EMB,embB@E951D,S,{},{},{}
 153.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,fabG1@a-16g,R,{},"{""Present_SOLO_R"": 0, ""Present_SOLO_SR"": 0, ""Present_S"": 1, ""Absent_S"": 22136, ""Present_R"": 0, ""Absent_R"": 12172}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
@@ -1839,3 +1840,13 @@ Unnamed: 0,GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,
 1477.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,fabG1@L203L,R,{},"{""Present_SOLO_R"": 61, ""Present_SOLO_SR"": 101, ""Present_S"": 47, ""Absent_S"": 10906, ""Present_R"": 175, ""Absent_R"": 2790}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
 1478.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,fabG1@t-8a,R,{},"{""Present_SOLO_R"": 5, ""Present_SOLO_SR"": 11, ""Present_S"": 18, ""Absent_S"": 10935, ""Present_R"": 42, ""Absent_R"": 2923}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
 1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,fabG1@t-8c,R,{},"{""Present_SOLO_R"": 9, ""Present_SOLO_SR"": 22, ""Present_S"": 36, ""Absent_S"": 10917, ""Present_R"": 66, ""Absent_R"": 2899}","{""FINAL_CONFIDENCE_GRADING"": ""2) Assoc w R - Interim""}"
+1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,fabG1@*?,U,{},{},{}
+1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,fabG1@-*?,U,{},{},{}
+1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,fabG1@*_indel,U,{},{},{}
+1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,fabG1@-*_indel,U,{},{},{}
+1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,INH,fabG1@*=,S,{},{},{}
+1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,fabG1@*?,U,{},{},{}
+1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,fabG1@-*?,U,{},{},{}
+1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,fabG1@*_indel,U,{},{},{}
+1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,fabG1@-*_indel,U,{},{},{}
+1479.0,NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,ETH,fabG1@*=,S,{},{},{}

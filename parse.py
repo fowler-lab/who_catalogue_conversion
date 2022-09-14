@@ -530,6 +530,10 @@ def addExtras(reference: gumpy.Genome) -> None:
     '''
     catalogue = pd.read_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
     toAdd = {column: [] for column in catalogue}
+    
+    #Track the new resistance genes this introduces to add default rules
+    newGenes = set()
+    previousGenes = set([mutation.split("@")[0] for mutation in catalogue['MUTATION']])
     for _, row in catalogue.iterrows():
         mut = row['MUTATION']
         #Check for promoter
@@ -545,7 +549,6 @@ def addExtras(reference: gumpy.Genome) -> None:
         if promoter.fullmatch(mut):
             gene, ref, pos, alt = promoter.fullmatch(mut).groups()
             pos = int(pos)
-            print(gene, ref, pos, alt)
             sample = copy.deepcopy(reference)
             
             #Place the mutation within the genome based on the gene coordinates
@@ -570,9 +573,10 @@ def addExtras(reference: gumpy.Genome) -> None:
             #Get genes at this position
             possible = [reference.stacked_gene_name[i][pos_] for i in range(len(reference.stacked_gene_name)) if reference.stacked_gene_name[i][pos_] != '']
             for g in possible:
-                print("Checking :",g)
                 if g == gene:
                     continue
+                if row['PREDICTION'] == "R" and g not in previousGenes:
+                    newGenes.add((g, row['DRUG']))
                 diff = reference.build_gene(g) - sample.build_gene(g)
                 m = diff.mutations
                 if m:
@@ -586,6 +590,27 @@ def addExtras(reference: gumpy.Genome) -> None:
                         toAdd[col].append(m)
                     else:
                         toAdd[col].append(row[col])
+    for gene, drug in newGenes:
+        #These are new resistance genes, so add default rules as appropriate
+        defaults = [
+            (gene+"@*?", 'U'), (gene+"@-*?", 'U'),
+            (gene+"@*_indel", "U"), (gene+"@-*_indel", 'U')
+            ]
+        if reference.genes[gene]['codes_protein']:
+            defaults.append((gene+"@*=","S"))
+        for g, predict in defaults:
+            for col in catalogue:
+                if col == "MUTATION":
+                    toAdd[col].append(g)
+                elif col == "DRUG":
+                    toAdd[col].append(drug)
+                elif col == "PREDICTION":
+                    toAdd[col].append(predict)
+                elif col in ["SOURCE", "EVIDENCE", "OTHER"]:
+                    toAdd[col].append("{}")
+                else:
+                    #Others should be constant
+                    toAdd[col].append(toAdd[col][-1])
     #Convert toAdd to dataframe and concat with catalogue
     toAdd = pd.DataFrame(toAdd)
     catalogue = pd.concat([catalogue, toAdd])
