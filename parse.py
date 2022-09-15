@@ -585,6 +585,10 @@ def addExtras(reference: gumpy.Genome) -> None:
             
             #Make them neat catalouge rows to add
             for m in mutations:
+                if [m, row['DRUG']] in catalogue[['MUTATION', 'DRUG']].values.tolist():
+                    #This already exists so skip it
+                    print("Skipping ", m, row['DRUG'])
+                    continue
                 for col in catalogue:
                     if col == "MUTATION":
                         toAdd[col].append(m)
