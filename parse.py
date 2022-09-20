@@ -712,8 +712,10 @@ if __name__ == "__main__":
                                     if base1 == base2:
                                         #Matches the synonymous mutation so skip
                                         continue
+                                    
                             #Helpful mutation, so add it
                             f.write(common + mutation + "," + category + ",{},{},{}\n")
+
                             #Check for an expert rule that gyrA/B@* --> MXF resistance = gyrA/B@* --> LEV resistance and vice versa
                             if drug == "MXF" and category == "R":
                                 expert = re.compile(r"""
