@@ -14,6 +14,11 @@ import numpy
 import pandas as pd
 from tqdm import tqdm
 
+trackRevCompProm = 0
+trackRevComp = 0
+trackProm = 0
+trackNC = 0
+track = 0
 
 def parse_who_catalog(filename):
     '''Parses the WHO TB catalog
@@ -39,6 +44,8 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
     Returns:
         list(str): List of SNP mutations in GARC
     '''
+    global trackRevCompProm
+    global trackRevComp
     mutations = []
     ref_seq = reference.nucleotide_sequence.copy()
     offset = 0
@@ -49,16 +56,27 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
         if r is not None and a is not None and r != a:
             if (pos + index) - reference.genes[gene]["start"] < 0:
                 #Past the end of the gene so just return
-                print(f"Cut off snp, returning {mutations} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
+                # print(f"Cut off snp, returning {mutations} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
                 return mutations
             if reference.genes[gene]["end"] - (pos + index) <= 0 or reference.genes[gene]['codes_protein'] == False:
                 if reference.genes[gene]["end"] - (pos + index) <= 0:
+                    #Promoter
+                    p = reference.genes[gene]["end"] - (pos + index)
+                    mask = reference.nucleotide_index == pos + index
+                else:
+                    #Non coding
                     p = reference.genes[gene]["end"] - (pos + index) - 1
-                #Promoter or non-coding so return the difference in nucleotides
+                    mask = reference.nucleotide_index == pos + index - 1
+                if ref_seq[mask] != r:
+                    print(f"Given ref did not match: {ref_seq[mask]} != {r} for {gene} {p} {ref} {alt} {pos+index} {trackRevCompProm}")
                 r,a  = gumpy.Gene._complement([r, a])
                 mutations.append(gene + "@" + r + str(p) + a)
+                trackRevCompProm += 1
             else:
+                if ref_seq[pos + index - 1] != r:
+                    print(f"Given ref did not match: {ref_seq[pos + index - 1]} != {r} for {gene} {ref} {alt} {pos+index-1} {trackRevComp}")
                 ref_seq[pos + index - 1] = a
+                trackRevComp += 1
                 
     if reference.genes[gene]['codes_protein']:
         stacked_mask, mask = masks[gene]
@@ -98,6 +116,9 @@ def snps(reference, gene, pos, ref, alt, masks):
     Returns:
         list(str): List of SNP mutations in GARC
     '''
+    global track
+    global trackNC
+    global trackProm
     mutations = []
     ref_seq = reference.nucleotide_sequence.copy()
     offset = 0
@@ -108,17 +129,28 @@ def snps(reference, gene, pos, ref, alt, masks):
         if r is not None and a is not None and r != a:
             if reference.genes[gene]["end"] - (pos + index ) <= 0:
                 #Past the end of the gene so just return
-                print(f"Cut off snp, returning {mutations} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
+                # print(f"Cut off snp, returning {mutations} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
                 return mutations
             if (pos + index) - reference.genes[gene]["start"] < 0:
                 #Promoter so return the difference in nucleotides
+                mask = reference.nucleotide_index == pos + index
+                if ref_seq[mask] != r:
+                    print(f"Given ref did not match: {ref_seq[mask]} != {r} for {gene} {ref} {alt} {pos+index} {trackProm}")
                 mutations.append(gene + "@" + r + str((pos + index) - reference.genes[gene]["start"]) + a)
+                trackProm += 1
             if reference.genes[gene]['codes_protein'] == False:
                 #Non coding so return the difference in nucleotides adjusting for promoter indexing
-                mutations.append(gene + "@" + r + str((pos + index + 1) - reference.genes[gene]["start"]) + a)
+                mask = reference.nucleotide_index == pos + index
+                if ref_seq[mask] != r:
+                    print(f"Given ref did not match: {ref_seq[mask]} != {r} for {gene} {ref} {alt} {pos+index} {trackNC}")
+                mutations.append(gene + "@" + r + str((pos + index) - reference.genes[gene]["start"]) + a)
+                trackNC += 1
 
             else:
+                if ref_seq[pos + index - 1] != r:
+                    print(f"Given ref did not match: {ref_seq[pos + index - 1]} != {r} for {gene} {ref} {alt} {pos+index-1} {track}")
                 ref_seq[pos + index - 1] = a
+                track += 1
     if reference.genes[gene]['codes_protein']:
         stacked_mask, mask = masks[gene]
 
@@ -182,7 +214,7 @@ def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
         if p - 1 > reference.genes[gene]["end"] - reference.genes[gene]["start"]:
             # print(p, pos, start, reference.genes[gene]["end"])
             #Del happened past the 3' end of the gene so ignore it
-            print(f"Cut off del, returning {snp} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"],  sep="\t")
+            # print(f"Cut off del, returning {snp} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"],  sep="\t")
             return []
     else:
         p = pos - reference.genes[gene]["start"] + start
@@ -191,7 +223,7 @@ def del_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
         if p > reference.genes[gene]["end"] - reference.genes[gene]["start"]:
             # print(p, pos, start, reference.genes[gene]["end"])
             #If the del happened past the 3' end of the gene, ignore it
-            print(f"Cut off del, returning {snp} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
+            # print(f"Cut off del, returning {snp} from ", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
             return []
     #Promoter adjustment to accomodate the -2,-1,1,2 indexing
     if p <= 0:
@@ -270,7 +302,7 @@ def ins_calls(reference, gene, pos, ref, alt, masks, rev_comp=False):
         snp = snps(reference, gene, pos, ref, alt1, masks)
         if p > reference.genes[gene]["end"] - reference.genes[gene]["start"]:
             #Past the 3' end so ignore
-            print(f"Cut off ins, returning {snp} from", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
+            # print(f"Cut off ins, returning {snp} from", gene, pos, ''.join([i for i in ref if i is not None]), ''.join([i for i in alt if i is not None]), reference.genes[gene]["end"], sep="\t")
             return snp
     #Promoter adjustment to accomodate the -2,-1,1,2 indexing
     if p <= 0:
@@ -470,7 +502,7 @@ def parse(reference: gumpy.Genome, data: pd.DataFrame) -> dict:
     garcToVariant = {} #Mapping of (GARC, drug, prediction) --> variant
 
     # Iterate over the catalogue
-    for (index, row) in tqdm(list(data.iterrows())):
+    for (index, row) in data.iterrows():
         garc = []
         #Pull out gene name, pos, ref and alt
         gene = row["gene_name"]
@@ -558,9 +590,9 @@ def addExtras(reference: gumpy.Genome) -> None:
                 geneEnd = reference.genes[gene]['end']
                 ref_ = ''.join(gumpy.Gene._complement(ref))
                 alt_ = ''.join(gumpy.Gene._complement(alt))
-                pos_ = geneEnd-pos-1
-                assert reference.nucleotide_sequence[reference.nucleotide_index == geneEnd-pos-1] == ref_, "Ref does not match the genome..."
-                sample.nucleotide_sequence[reference.nucleotide_index == geneEnd-pos-1] = alt_
+                pos_ = geneEnd-pos
+                assert reference.nucleotide_sequence[reference.nucleotide_index == geneEnd-pos] == ref_, "Ref does not match the genome..."
+                sample.nucleotide_sequence[reference.nucleotide_index == geneEnd-pos] = alt_
             else:
                 geneStart = reference.genes[gene]['start']
                 pos_ = geneStart+pos
