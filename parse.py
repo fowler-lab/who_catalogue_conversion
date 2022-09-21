@@ -14,11 +14,6 @@ import numpy
 import pandas as pd
 from tqdm import tqdm
 
-trackRevCompProm = 0
-trackRevComp = 0
-trackProm = 0
-trackNC = 0
-track = 0
 
 def parse_who_catalog(filename):
     '''Parses the WHO TB catalog
@@ -44,8 +39,6 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
     Returns:
         list(str): List of SNP mutations in GARC
     '''
-    global trackRevCompProm
-    global trackRevComp
     mutations = []
     ref_seq = reference.nucleotide_sequence.copy()
     offset = 0
@@ -68,15 +61,13 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
                     p = reference.genes[gene]["end"] - (pos + index) - 1
                     mask = reference.nucleotide_index == pos + index - 1
                 if ref_seq[mask] != r:
-                    print(f"Given ref did not match: {ref_seq[mask]} != {r} for {gene} {p} {ref} {alt} {pos+index} {trackRevCompProm}")
+                    print(f"Given ref did not match: {ref_seq[mask]} != {r} for {gene} {p} {ref} {alt} {pos+index}")
                 r,a  = gumpy.Gene._complement([r, a])
                 mutations.append(gene + "@" + r + str(p) + a)
-                trackRevCompProm += 1
             else:
                 if ref_seq[pos + index - 1] != r:
-                    print(f"Given ref did not match: {ref_seq[pos + index - 1]} != {r} for {gene} {ref} {alt} {pos+index-1} {trackRevComp}")
+                    print(f"Given ref did not match: {ref_seq[pos + index - 1]} != {r} for {gene} {ref} {alt} {pos+index-1}")
                 ref_seq[pos + index - 1] = a
-                trackRevComp += 1
                 
     if reference.genes[gene]['codes_protein']:
         stacked_mask, mask = masks[gene]
@@ -98,9 +89,14 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
 
         aa_mut = [(i+1, ref_aa, alt_aa) for (i, (ref_aa, alt_aa)) in enumerate(zip(ref_gene.codons, g.codons)) if ref_aa != alt_aa]
         for (pos_, r, a) in aa_mut:
-            r = g.codon_to_amino_acid[r]
-            a = g.codon_to_amino_acid[a]
-            mutations.append(gene + "@" + r + str(pos_) + a)
+            r_ = g.codon_to_amino_acid[r]
+            a_ = g.codon_to_amino_acid[a]
+            mutations.append(gene + "@" + r_ + str(pos_) + a_)
+            #If this was synonymous, add the nucelotide changes too (to account for cases such as fabG1@L203L)
+            if r_ == a_:
+                for i, (rn, an) in enumerate(zip(r, a)):
+                    if rn != an:
+                        mutations.append(gene + "@" + rn + str((pos_ - 1) * 3 + i + 1) + an)
     return mutations
 
 def snps(reference, gene, pos, ref, alt, masks):
@@ -116,9 +112,6 @@ def snps(reference, gene, pos, ref, alt, masks):
     Returns:
         list(str): List of SNP mutations in GARC
     '''
-    global track
-    global trackNC
-    global trackProm
     mutations = []
     ref_seq = reference.nucleotide_sequence.copy()
     offset = 0
@@ -135,22 +128,19 @@ def snps(reference, gene, pos, ref, alt, masks):
                 #Promoter so return the difference in nucleotides
                 mask = reference.nucleotide_index == pos + index
                 if ref_seq[mask] != r:
-                    print(f"Given ref did not match: {ref_seq[mask]} != {r} for {gene} {ref} {alt} {pos+index} {trackProm}")
+                    print(f"Given ref did not match: {ref_seq[mask]} != {r} for {gene} {ref} {alt} {pos+index}")
                 mutations.append(gene + "@" + r + str((pos + index) - reference.genes[gene]["start"]) + a)
-                trackProm += 1
-            if reference.genes[gene]['codes_protein'] == False:
+            elif reference.genes[gene]['codes_protein'] == False:
                 #Non coding so return the difference in nucleotides adjusting for promoter indexing
                 mask = reference.nucleotide_index == pos + index
                 if ref_seq[mask] != r:
-                    print(f"Given ref did not match: {ref_seq[mask]} != {r} for {gene} {ref} {alt} {pos+index} {trackNC}")
+                    print(f"Given ref did not match: {ref_seq[mask]} != {r} for {gene} {ref} {alt} {pos+index}")
                 mutations.append(gene + "@" + r + str((pos + index) - reference.genes[gene]["start"]) + a)
-                trackNC += 1
 
             else:
                 if ref_seq[pos + index - 1] != r:
-                    print(f"Given ref did not match: {ref_seq[pos + index - 1]} != {r} for {gene} {ref} {alt} {pos+index-1} {track}")
+                    print(f"Given ref did not match: {ref_seq[pos + index - 1]} != {r} for {gene} {ref} {alt} {pos+index-1}")
                 ref_seq[pos + index - 1] = a
-                track += 1
     if reference.genes[gene]['codes_protein']:
         stacked_mask, mask = masks[gene]
 
@@ -171,9 +161,14 @@ def snps(reference, gene, pos, ref, alt, masks):
 
         aa_mut = [(i+1, ref_aa, alt_aa) for (i, (ref_aa, alt_aa)) in enumerate(zip(ref_gene.codons, g.codons)) if ref_aa != alt_aa]
         for (pos_, r, a) in aa_mut:
-            r = g.codon_to_amino_acid[r]
-            a = g.codon_to_amino_acid[a]
-            mutations.append(gene + "@" + r + str(pos_) + a)
+            r_ = g.codon_to_amino_acid[r]
+            a_ = g.codon_to_amino_acid[a]
+            mutations.append(gene + "@" + r_ + str(pos_) + a_)
+            #If this was synonymous, add the nucelotide changes too (to account for cases such as fabG1@L203L)
+            if r_ == a_:
+                for i, (rn, an) in enumerate(zip(r, a)):
+                    if rn != an:
+                        mutations.append(gene + "@" + rn + str((pos_ - 1) * 3 + i + 1) + an)
     return mutations
 
 
@@ -423,11 +418,15 @@ def addMetadata() -> None:
         garc = row['MUTATION']
         prediction = row['PREDICTION']
 
-        if drug == "LFX" and "gyr" in garc:
-            #This is an LFX row added because of an expert rule, so pull out the metadata for the original row
-            drug = "MXF"
+        try:
+            variant = garcToVariant[(garc, drug, prediction)]
+        except KeyError:
+            #Could be this
+            if drug == "LEV" and "gyr" in garc:
+                #This is an LEV row added because of an expert rule, so pull out the metadata for the original row
+                drug = "MXF"
+                variant = garcToVariant[(garc, drug, prediction)]
 
-        variant = garcToVariant[(garc, drug, prediction)]
         
         vals = values.loc[(values['variant (common_name)'] == variant) & (values['drug'] == drug)]
         if len(vals) == 0:
@@ -609,11 +608,12 @@ def addExtras(reference: gumpy.Genome) -> None:
                     continue
                 if row['PREDICTION'] == "R" and g not in previousGenes:
                     newGenes.add((g, row['DRUG']))
+                gMutations = []
                 diff = reference.build_gene(g) - sample.build_gene(g)
                 m = diff.mutations
-                if m:
-                    for mut_ in m:
-                        mutations.append(g+"@"+mut_)
+                for mut_ in m:
+                    gMutations.append(g+"@"+mut_)
+                mutations.append("&".join(sorted(gMutations)))
             
             #Make them neat catalouge rows to add
             for m in mutations:
@@ -735,12 +735,18 @@ if __name__ == "__main__":
 
                             if category == 'S':
                                 #Checking for gene@*=
+                                #This has now become gene@A*A(&gene@<nucleotide><pos><nucleotide>){1,3}
                                 synon = re.compile(r"""
                                                     ([a-zA-Z_0-9]+@) #Leading gene name
                                                     (([!ACDEFGHIKLMNOPQRSTVWXYZ])[0-9]+([!ACDEFGHIKLMNOPQRSTVWXYZ])) #SNP
+                                                    (& #And the nucleotide(s) causing this
+                                                    ([a-zA-Z_0-9]+@) #Gene
+                                                    ([a-z][0-9]+[a-z]))+ #Nucleotide SNP
                                                     """, re.VERBOSE)
                                 if synon.fullmatch(mutation):
-                                    name, mut, base1, base2 = synon.fullmatch(mutation).groups()
+                                    matches = synon.fullmatch(mutation).groups()
+                                    base1 = matches[2]
+                                    base2 = matches[3]
                                     if base1 == base2:
                                         #Matches the synonymous mutation so skip
                                         continue
