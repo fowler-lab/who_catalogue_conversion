@@ -555,7 +555,7 @@ def addExtras(reference: gumpy.Genome) -> None:
     '''Once the catalogue has been parsed correctly, there will be some mutations which also lie within other genes
     This finds them and adds them to the catalogue. Specifically, this checks for promoter SNPs which could be attributed
     to other genes, especially in cases where the promoter position is beyond the arbitrary internal limits of gumpy.
-
+    As this utilises gumpy, it is quite slow (~20 mins), but it reliably produces results.
     Args:
         reference (gumpy.Genome): Reference genome
     '''
@@ -573,14 +573,25 @@ def addExtras(reference: gumpy.Genome) -> None:
         #Check for default rules/multi for skipping
         if "*" in mut or "?" in mut or "&" in mut or "indel" in mut:
             continue
-        promoter = re.compile(r"""
+        promoterSNP = re.compile(r"""
                             ([a-zA-Z0-9_]+)@ #Leading gene name
-                            ([a-z])(-[0-9]+)([a-z])
+                            ([a-z])(-[0-9]+)([a-z]) #Nucleotide SNP
                             """, re.VERBOSE)
-        if promoter.fullmatch(mut):
-            gene, ref, pos, alt = promoter.fullmatch(mut).groups()
+        #With indels, we need the bases to properly pull out other mutations
+        #So we have to ignore cases where bases are ambiguous or just a number
+        promoterIns = re.compile(r"""
+                            ([a-zA-Z0-9_]+)@ #Leading gene name
+                            (-[0-9]+)_ins_([acgt]+)
+                            """, re.VERBOSE)
+        promoterDel = re.compile(r"""
+                            ([a-zA-Z0-9_]+)@ #Leading gene name
+                            (-[0-9]+)_del_([acgt]+)
+                            """, re.VERBOSE)
+        if promoterSNP.fullmatch(mut):
+            gene, ref, pos, alt = promoterSNP.fullmatch(mut).groups()
             pos = int(pos)
             sample = copy.deepcopy(reference)
+            print(gene, pos, ref, alt)
             
             #Place the mutation within the genome based on the gene coordinates
             #Then regardless of what gene it started in, we can pull out others
@@ -589,7 +600,7 @@ def addExtras(reference: gumpy.Genome) -> None:
                 geneEnd = reference.genes[gene]['end']
                 ref_ = ''.join(gumpy.Gene._complement(ref))
                 alt_ = ''.join(gumpy.Gene._complement(alt))
-                pos_ = geneEnd-pos
+                pos_ = geneEnd-pos-1
                 assert reference.nucleotide_sequence[reference.nucleotide_index == geneEnd-pos] == ref_, "Ref does not match the genome..."
                 sample.nucleotide_sequence[reference.nucleotide_index == geneEnd-pos] = alt_
             else:
@@ -597,35 +608,78 @@ def addExtras(reference: gumpy.Genome) -> None:
                 pos_ = geneStart+pos
                 assert reference.nucleotide_sequence[reference.nucleotide_index == geneStart+pos] == ref, "Ref does not match the genome..."
                 sample.nucleotide_sequence[reference.nucleotide_index == geneStart+pos] = alt
+
+        elif promoterIns.fullmatch(mut):
+            gene, pos, bases = promoterIns.fullmatch(mut).groups()
+            sample = copy.deepcopy(reference)
+            pos = int(pos)
+            print(gene, pos, "ins", bases)
+
+            if reference.genes[gene]['reverse_complement']:
+                #Revcomp genes' promoters will be past the `gene end`
+                geneEnd = reference.genes[gene]['end']
+                bases = ''.join(gumpy.Gene._complement(bases)[::-1])
+                pos_ = geneEnd-pos
+            else:
+                geneStart = reference.genes[gene]['start']
+                pos_ = geneStart+pos
+
+            sample.is_indel[pos_] = True
+            sample.indel_length[pos_] = len(bases)
+            sample.indel_nucleotides[pos_] = bases
+        
+        elif promoterDel.fullmatch(mut):
+            gene, pos, bases = promoterDel.fullmatch(mut).groups()
+            sample = copy.deepcopy(reference)
+            pos = int(pos)
+            print(gene, pos, "del", bases)
+
+            if reference.genes[gene]['reverse_complement']:
+                #Revcomp genes' promoters will be past the `gene end`
+                geneEnd = reference.genes[gene]['end']
+                bases = ''.join(gumpy.Gene._complement(bases)[::-1])
+                #Pos is a little more involved here
+                #Should be adjusted by the length of the bases too
+                pos_ = geneEnd - pos - 1 - len(bases)
+            else:
+                geneStart = reference.genes[gene]['start']
+                pos_ = geneStart+pos
+
+            sample.is_indel[pos_] = True
+            sample.indel_length[pos_] = -len(bases)
+            sample.indel_nucleotides[pos_] = bases
+        
+        else:
+            #No matches so skip it
+            continue
             
-            #The only mutations between ref and sample are this SNP
-            #So pull out all available mutations (ignoring the original gene)
-            mutations = []
-            #Get genes at this position
-            possible = [reference.stacked_gene_name[i][pos_] for i in range(len(reference.stacked_gene_name)) if reference.stacked_gene_name[i][pos_] != '']
-            for g in possible:
-                if g == gene:
-                    continue
-                if row['PREDICTION'] == "R" and g not in previousGenes:
-                    newGenes.add((g, row['DRUG']))
-                gMutations = []
-                diff = reference.build_gene(g) - sample.build_gene(g)
-                m = diff.mutations
-                for mut_ in m:
-                    gMutations.append(g+"@"+mut_)
-                mutations.append("&".join(sorted(gMutations)))
-            
-            #Make them neat catalouge rows to add
-            for m in mutations:
-                if [m, row['DRUG']] in catalogue[['MUTATION', 'DRUG']].values.tolist():
-                    #This already exists so skip it
-                    print("Skipping ", m, row['DRUG'])
-                    continue
-                for col in catalogue:
-                    if col == "MUTATION":
-                        toAdd[col].append(m)
-                    else:
-                        toAdd[col].append(row[col])
+        #The only mutations between ref and sample are the promoter mutation introduced above
+        #So pull out all available mutations (ignoring the original gene)
+        mutations = []
+        #Get genes at this position
+        possible = [reference.stacked_gene_name[i][pos_] for i in range(len(reference.stacked_gene_name)) if reference.stacked_gene_name[i][pos_] != '']
+        for g in possible:
+            if g == gene:
+                continue
+            if g not in previousGenes:
+                newGenes.add((g, row['DRUG']))
+            print("Checking ", g)
+            gMutations = []
+            diff = reference.build_gene(g) - sample.build_gene(g)
+            m = diff.mutations
+            for mut_ in m:
+                gMutations.append(g+"@"+mut_)
+            mutations.append("&".join(sorted(gMutations)))
+        print()
+        
+        #Make them neat catalouge rows to add
+        for m in mutations:
+            for col in catalogue:
+                if col == "MUTATION":
+                    toAdd[col].append(m)
+                else:
+                    toAdd[col].append(row[col])
+
     for gene, drug in newGenes:
         #These are new resistance genes, so add default rules as appropriate
         defaults = [
@@ -647,12 +701,80 @@ def addExtras(reference: gumpy.Genome) -> None:
                 else:
                     #Others should be constant
                     toAdd[col].append(toAdd[col][-1])
+
     #Convert toAdd to dataframe and concat with catalogue
-    toAdd = pd.DataFrame(toAdd)
+    toAdd = pd.DataFrame(toAdd)    
     catalogue = pd.concat([catalogue, toAdd])
+
+    #Do some filtering to ensure that only resistance conferring genes are in the catalogue
+    #We only want mutations within genes which confer resistance for each drug
+    resistances = set([(mutation.split("@")[0], drug) for mutation, drug, prediction in catalogue[['MUTATION', 'DRUG', 'PREDICTION']].values.tolist() if prediction == "R"])
+    toDelete = []
+    for i, row in catalogue.iterrows():
+        gene = row['MUTATION'].split("@")[0]
+        if (gene, row['DRUG']) not in resistances:
+            print("Deleting ", row['MUTATION'], row['DRUG'])
+            toDelete.append(i)
+    
+    catalogue.drop(toDelete, inplace=True)
+
     catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
     
 
+def filterRules() -> None:
+    '''Filter out mutations which are already covered by default rules
+    '''
+    catalogue = pd.read_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
+
+    toDelete = []
+    for i, row in catalogue.iterrows():
+        prediction = row['PREDICTION']
+        mutation = row['MUTATION']
+        if prediction == 'U':
+            indel = re.compile(r"""
+                            ([a-zA-Z_0-9]+@) #Leading gene name
+                            (
+                                (-?[0-9]+_((ins)|(del))_[acgotxz]*) #indel
+                            )
+                            """, re.VERBOSE)
+            if indel.fullmatch(mutation):
+                #Matched an indel generic so delete
+                toDelete.append(i)
+                print("Deleting: ", row['MUTATION'], row['DRUG'])
+
+            nonsynon = re.compile(r"""
+                                ([a-zA-Z_0-9]+@) #Leading gene name
+                                (([!ACDEFGHIKLMNOPQRSTVWXYZacgotxz])-?[0-9]+([!ACDEFGHIKLMNOPQRSTVWXYZacgotxz])) #SNP
+                                """, re.VERBOSE)
+            if nonsynon.fullmatch(mutation):
+                _, _, base1, base2 = nonsynon.fullmatch(mutation).groups()
+                if base1 != base2:
+                    #This matches the gene@*? or gene@-*? so delete
+                    toDelete.append(i)
+                    print("Deleting: ", row['MUTATION'], row['DRUG'])
+            
+        if prediction == 'S':
+            #Checking for gene@*=
+            #This has now become gene@A*A(&gene@<nucleotide><pos><nucleotide>){1,3}
+            synon = re.compile(r"""
+                                ([a-zA-Z_0-9]+@) #Leading gene name
+                                (([!ACDEFGHIKLMNOPQRSTVWXYZ])[0-9]+([!ACDEFGHIKLMNOPQRSTVWXYZ])) #SNP
+                                (& #And the nucleotide(s) causing this
+                                ([a-zA-Z_0-9]+@) #Gene
+                                ([a-z][0-9]+[a-z]))+ #Nucleotide SNP
+                                """, re.VERBOSE)
+            if synon.fullmatch(mutation):
+                matches = synon.fullmatch(mutation).groups()
+                base1 = matches[2]
+                base2 = matches[3]
+                if base1 == base2:
+                    #Matches the synonymous mutation so delete
+                    toDelete.append(i)
+                    print("Deleting: ", row['MUTATION'], row['DRUG'])
+    
+    catalogue.drop(toDelete, inplace=True)
+
+    catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
 
 
         
@@ -691,12 +813,11 @@ if __name__ == "__main__":
             resistanceGenes[drug].add(mutation.split("@")[0])
 
     with open("WHO-UCN-GTB-PCI-2021.7.GARC.csv", "w") as f:
-        header = "GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,PREDICTION_VALUES,DRUG,MUTATION,PREDICTION,SOURCE,EVIDENCE,OTHER\n"
-        common_all = "NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,"
-        f.write(header)
-        resist = 0
+        HEADER = "GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,PREDICTION_VALUES,DRUG,MUTATION,PREDICTION,SOURCE,EVIDENCE,OTHER\n"
+        COMMON_ALL = "NC_000962.3,WHO-UCN-GTB-PCI-2021.7,1.0,GARC1,RUS,"
+        f.write(HEADER)
         for drug in drugs.keys():
-            common = common_all + drug + ","
+            common = COMMON_ALL + drug + ","
             #Write basic rules to cover all mutations not detailed here
             if resistanceGenes[drug]:
                 #There are genes associated with resistance, so add generic U rules as appropriate
@@ -713,24 +834,27 @@ if __name__ == "__main__":
                         if mutation.split("@")[0] in resistanceGenes[drug]:
                             #Ignore mutations which are already covered by the generic rules
                             if category == 'U':
+                                #Checking for (non-promoter) indels
                                 indel = re.compile(r"""
                                                     ([a-zA-Z_0-9]+@) #Leading gene name
                                                     (
-                                                        (-?[0-9]+_((ins)|(del))_[acgotxz]*) #indel
+                                                        ([0-9]+_((ins)|(del))_[acgotxz]*) #indel
                                                     )
                                                     """, re.VERBOSE)
                                 if indel.fullmatch(mutation):
                                     #Matched an indel generic so skip
                                     continue
-                                #Checking for nonsynonymous SNPs
+                                #Checking for nonsynonymous (non promoter) SNPs
+                                #Promoters here can go far beyond the -100 limit in gumpy
+                                #So filter out those after adding extras
                                 nonsynon = re.compile(r"""
                                                     ([a-zA-Z_0-9]+@) #Leading gene name
-                                                    (([!ACDEFGHIKLMNOPQRSTVWXYZacgotxz])-?[0-9]+([!ACDEFGHIKLMNOPQRSTVWXYZacgotxz])) #SNP
+                                                    (([!ACDEFGHIKLMNOPQRSTVWXYZacgotxz])[0-9]+([!ACDEFGHIKLMNOPQRSTVWXYZacgotxz])) #SNP
                                                     """, re.VERBOSE)
                                 if nonsynon.fullmatch(mutation):
                                     name, mut, base1, base2 = nonsynon.fullmatch(mutation).groups()
                                     if base1 != base2:
-                                        #This matches the gene@*? or gene@-*? so skip
+                                        #This matches the gene@*? so skip
                                         continue
 
                             if category == 'S':
@@ -762,7 +886,7 @@ if __name__ == "__main__":
                                                     """, re.VERBOSE)
                                 if expert.fullmatch(mutation):
                                     #Match so add the LEV resistance
-                                    f.write(common_all + "LEV," + mutation + "," + category + ",{},{},{}\n")
+                                    f.write(COMMON_ALL + "LEV," + mutation + "," + category + ",{},{},{}\n")
                             if drug == "LEV" and category == "R":
                                 expert = re.compile(r"""
                                                     gyr[AB] #Leading gene name
@@ -770,7 +894,7 @@ if __name__ == "__main__":
                                                     """, re.VERBOSE)
                                 if expert.fullmatch(mutation):
                                     #Match so add the LEV resistance
-                                    f.write(common_all + "MXF," + mutation + "," + category + ",{},{},{}\n")
+                                    f.write(COMMON_ALL + "MXF," + mutation + "," + category + ",{},{},{}\n")
 
     #Add the evidence JSON
     addMetadata()
@@ -780,3 +904,6 @@ if __name__ == "__main__":
 
     #Add the extras for cases where genes overlap at mutations
     addExtras(reference)
+
+    #Filter out based on default rules now the extras have been added
+    filterRules()
