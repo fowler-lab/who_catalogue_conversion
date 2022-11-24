@@ -10,7 +10,7 @@ pip install -r requirements.txt
 ```
 
 ## Running
-First time running will take a considerable amount of time (20+ minutes) due to consistent rebuilding of `gumpy.Gene` objects for mutations. After this, values will be cached to disk using pickle. Due to the security implications of the pickle module, **DO NOT SEND/RECIVE PICKLES**. They are blacklisted in the `.gitignore` for this reason.
+First time running will take a considerable amount of time (30+ minutes) due to consistent rebuilding of `gumpy.Gene` objects for mutations. After this, values will be cached to disk using pickle. Due to the security implications of the pickle module, **DO NOT SEND/RECIVE PICKLES**. They are blacklisted in the `.gitignore` for this reason.
 ```
 python parse.py
 ```

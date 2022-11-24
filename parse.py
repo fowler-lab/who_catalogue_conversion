@@ -13,7 +13,9 @@ import gumpy
 import numpy
 import pandas as pd
 from tqdm import tqdm
+import functools
 
+print = functools.partial(print, flush=True)
 
 def parse_who_catalog(filename):
     '''Parses the WHO TB catalog
@@ -679,31 +681,15 @@ def addExtras(reference: gumpy.Genome) -> None:
                     toAdd[col].append(m)
                 else:
                     toAdd[col].append(row[col])
+    rmCol = None
+    for key in toAdd.keys():
+        if len(toAdd[key]) == 0:
+            #Drop a weird empty column if exists
+            rmCol = key
+    if rmCol is not None:
+        del toAdd[rmCol]
 
-    for gene, drug in newGenes:
-        #These are new resistance genes, so add default rules as appropriate
-        defaults = [
-            (gene+"@*?", 'U'), (gene+"@-*?", 'U'),
-            (gene+"@*_indel", "U"), (gene+"@-*_indel", 'U')
-            ]
-        if reference.genes[gene]['codes_protein']:
-            defaults.append((gene+"@*=","S"))
-        for g, predict in defaults:
-            for col in catalogue:
-                if col == "MUTATION":
-                    toAdd[col].append(g)
-                elif col == "DRUG":
-                    toAdd[col].append(drug)
-                elif col == "PREDICTION":
-                    toAdd[col].append(predict)
-                elif col in ["SOURCE", "EVIDENCE", "OTHER"]:
-                    toAdd[col].append("{}")
-                else:
-                    #Others should be constant
-                    toAdd[col].append(toAdd[col][-1])
-
-    #Convert toAdd to dataframe and concat with catalogue
-    toAdd = pd.DataFrame(toAdd)    
+    toAdd = pd.DataFrame(toAdd)
     catalogue = pd.concat([catalogue, toAdd])
 
     #Do some filtering to ensure that only resistance conferring genes are in the catalogue
@@ -719,6 +705,59 @@ def addExtras(reference: gumpy.Genome) -> None:
     catalogue.drop(toDelete, inplace=True)
 
     catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
+
+def addDefaults(reference: gumpy.Genome):
+    '''Add in default rules for all resistance genes within the catalogue
+
+    Args:
+        reference (gumpy.Genome): Reference genome
+    '''
+    catalogue = pd.read_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
+    resistanceGenes = set()
+
+    #Find all of the genes which confer resistance to a given drug
+    for i, row in catalogue.iterrows():
+        prediction = row['PREDICTION']
+        mutation = row['MUTATION']
+        drug = row['DRUG']
+        if prediction == "R":
+            resistanceGenes.add((mutation.split("@")[0], drug))
+    
+    toAdd = {column: [] for column in catalogue}
+    #Now we know which genes confer resistance, add default rules
+    for gene, drug in sorted(list(resistanceGenes)):
+        defaults = [
+            (gene+"@*?", 'U'), (gene+"@-*?", 'U'),
+            (gene+"@*_indel", "U"), (gene+"@-*_indel", 'U')
+            ]
+        if reference.genes[gene]['codes_protein']:
+            defaults.append((gene+"@*=","S"))
+        for rule, pred in defaults:
+            toAdd['GENBANK_REFERENCE'].append('NC_000962.3')
+            toAdd['CATALOGUE_NAME'].append('WHO-UCN-GTB-PCI-2021.7')
+            toAdd['CATALOGUE_VERSION'].append('1.0')
+            toAdd['CATALOGUE_GRAMMAR'].append('GARC1')
+            toAdd['PREDICTION_VALUES'].append("RUS")
+            toAdd['DRUG'].append(drug)
+            toAdd['MUTATION'].append(rule)
+            toAdd['PREDICTION'].append(pred)
+            toAdd['SOURCE'].append('{}')
+            toAdd['EVIDENCE'].append('{}')
+            toAdd['OTHER'].append('{}')
+    
+    rmCol = None
+    for key in toAdd.keys():
+        if len(toAdd[key]) == 0:
+            #Drop a weird empty column if exists
+            rmCol = key
+    if rmCol is not None:
+        del toAdd[rmCol]
+
+    #Now concat the tables and write
+    toAdd = pd.DataFrame(toAdd)  
+    catalogue = pd.concat([catalogue, toAdd])
+    catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
+    
     
 
 def filterRules() -> None:
@@ -821,13 +860,13 @@ if __name__ == "__main__":
             #Write basic rules to cover all mutations not detailed here
             if resistanceGenes[drug]:
                 #There are genes associated with resistance, so add generic U rules as appropriate
-                for gene in resistanceGenes[drug]:
-                    f.write(common + gene+"@*?,U,{},{},{}\n")
-                    f.write(common + gene+"@-*?,U,{},{},{}\n")
-                    f.write(common + gene+"@*_indel,U,{},{},{}\n")
-                    f.write(common + gene+"@-*_indel,U,{},{},{}\n")
-                    if reference.genes[gene]['codes_protein']:
-                        f.write(common + gene+"@*=,S,{},{},{}\n")
+                # for gene in resistanceGenes[drug]:
+                #     f.write(common + gene+"@*?,U,{},{},{}\n")
+                #     f.write(common + gene+"@-*?,U,{},{},{}\n")
+                #     f.write(common + gene+"@*_indel,U,{},{},{}\n")
+                #     f.write(common + gene+"@-*_indel,U,{},{},{}\n")
+                #     if reference.genes[gene]['codes_protein']:
+                #         f.write(common + gene+"@*=,S,{},{},{}\n")
 
                 for category in sorted(list(drugs[drug].keys())):
                     for mutation in sorted(list(drugs[drug][category])):
@@ -904,6 +943,9 @@ if __name__ == "__main__":
 
     #Add the extras for cases where genes overlap at mutations
     addExtras(reference)
+
+    #Add the default rules for all resistance genes
+    addDefaults(reference)
 
     #Filter out based on default rules now the extras have been added
     filterRules()
