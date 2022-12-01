@@ -14,7 +14,9 @@ import numpy
 import pandas as pd
 from tqdm import tqdm
 import functools
+import logging
 
+logging.basicConfig(filename='who-parse.log', filemode='w', format='%(asctime)s -  %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.DEBUG)
 print = functools.partial(print, flush=True)
 
 def parse_who_catalog(filename):
@@ -458,6 +460,7 @@ def addExpertRules() -> None:
     catalogue = pd.read_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
     expert = pd.read_csv("expertRules.csv")
     result = pd.concat([catalogue, expert])
+    logging.info("Concated the expert rules")
     result.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
 
 def parse(reference: gumpy.Genome, data: pd.DataFrame) -> dict:
@@ -518,7 +521,7 @@ def parse(reference: gumpy.Genome, data: pd.DataFrame) -> dict:
         #Check for multiple positions defined within pos
         if len(pos.split(",")) > 1:
             #There is more than 1 mutation detailed in this row, so skip it
-            print("Mulitple muations per row: ", gene, pos, ref, alt, sep="\t")
+            print("Mulitple mutations per row: ", gene, pos, ref, alt, sep="\t")
             continue
         else:            
             garc += to_garc(reference, gene, int(pos), ref, alt, masks)
@@ -671,6 +674,8 @@ def addExtras(reference: gumpy.Genome) -> None:
             m = diff.mutations
             for mut_ in m:
                 gMutations.append(g+"@"+mut_)
+            if gMutations:
+                logging.info(f"Found alternative form of {mut}: {'&'.join(sorted(gMutations))}")
             mutations.append("&".join(sorted(gMutations)))
         print()
         
@@ -691,18 +696,20 @@ def addExtras(reference: gumpy.Genome) -> None:
 
     toAdd = pd.DataFrame(toAdd)
     catalogue = pd.concat([catalogue, toAdd])
+    logging.info("Concated new versions with the catalogue")
 
     #Do some filtering to ensure that only resistance conferring genes are in the catalogue
     #We only want mutations within genes which confer resistance for each drug
-    resistances = set([(mutation.split("@")[0], drug) for mutation, drug, prediction in catalogue[['MUTATION', 'DRUG', 'PREDICTION']].values.tolist() if prediction == "R"])
-    toDelete = []
-    for i, row in catalogue.iterrows():
-        gene = row['MUTATION'].split("@")[0]
-        if (gene, row['DRUG']) not in resistances:
-            print("Deleting ", row['MUTATION'], row['DRUG'])
-            toDelete.append(i)
+    # resistances = set([(mutation.split("@")[0], drug) for mutation, drug, prediction in catalogue[['MUTATION', 'DRUG', 'PREDICTION']].values.tolist() if prediction == "R"])
+    # toDelete = []
+    # for i, row in catalogue.iterrows():
+    #     gene = row['MUTATION'].split("@")[0]
+    #     if (gene, row['DRUG']) not in resistances:
+    #         print("Deleting ", row['MUTATION'], row['DRUG'])
+    #         logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as {gene} is not a resistance gene")
+    #         toDelete.append(i)
     
-    catalogue.drop(toDelete, inplace=True)
+    # catalogue.drop(toDelete, inplace=True)
 
     catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
 
@@ -764,12 +771,25 @@ def filterRules() -> None:
     '''Filter out mutations which are already covered by default rules
     '''
     catalogue = pd.read_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv")
+    resistanceGenes = set()
 
-    toDelete = []
+    #Find all of the genes which confer resistance to a given drug
     for i, row in catalogue.iterrows():
         prediction = row['PREDICTION']
         mutation = row['MUTATION']
-        if prediction == 'U':
+        drug = row['DRUG']
+        if prediction == "R":
+            resistanceGenes.add((mutation.split("@")[0], drug))
+
+    fixed = {col: [] for col in catalogue}
+    for i, row in catalogue.iterrows():
+        toDelete = False
+        prediction = row['PREDICTION']
+        mutation = row['MUTATION']
+        if (mutation.split("@")[0], row['DRUG']) not in resistanceGenes:
+            toDelete = True
+            logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as it is not a resistance gene")
+        elif prediction == 'U':
             indel = re.compile(r"""
                             ([a-zA-Z_0-9]+@) #Leading gene name
                             (
@@ -778,8 +798,9 @@ def filterRules() -> None:
                             """, re.VERBOSE)
             if indel.fullmatch(mutation):
                 #Matched an indel generic so delete
-                toDelete.append(i)
+                toDelete = True
                 print("Deleting: ", row['MUTATION'], row['DRUG'])
+                logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as it matches *_indel-->U")
 
             nonsynon = re.compile(r"""
                                 ([a-zA-Z_0-9]+@) #Leading gene name
@@ -789,10 +810,11 @@ def filterRules() -> None:
                 _, _, base1, base2 = nonsynon.fullmatch(mutation).groups()
                 if base1 != base2:
                     #This matches the gene@*? or gene@-*? so delete
-                    toDelete.append(i)
+                    toDelete = True
                     print("Deleting: ", row['MUTATION'], row['DRUG'])
+                    logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as it matches *?-->U or -*?-->U")
             
-        if prediction == 'S':
+        elif prediction == 'S':
             #Checking for gene@*=
             #This has now become gene@A*A(&gene@<nucleotide><pos><nucleotide>){1,3}
             synon = re.compile(r"""
@@ -808,10 +830,16 @@ def filterRules() -> None:
                 base2 = matches[3]
                 if base1 == base2:
                     #Matches the synonymous mutation so delete
-                    toDelete.append(i)
+                    toDelete = True
                     print("Deleting: ", row['MUTATION'], row['DRUG'])
-    
-    catalogue.drop(toDelete, inplace=True)
+                    logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as it matches *=-->S")
+        
+        if not toDelete:
+            #We want to keep this one, so add to fixed
+            for col in row.axes[0]:
+                fixed[col].append(row[col])
+
+    catalogue = pd.DataFrame(fixed)
 
     catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
 
@@ -826,10 +854,12 @@ if __name__ == "__main__":
         #If the pickled genome exists, use it
         print("Found pickled reference genome")
         reference = pickle.load(open("reference.pkl", "rb"))
+        logging.info("Using pickeled reference")
     else:
         #Else load from scratch
         print("Loading reference genome")
         reference = gumpy.Genome("NC_000962.3.gbk", show_progress_bar=True)
+        logging.info("Loaded reference from gbk")
 
     #Load the catalogue
     data = parse_who_catalog("WHO-UCN-GTB-PCI-2021.7-eng.xlsx")
@@ -838,10 +868,12 @@ if __name__ == "__main__":
     if os.path.exists('drugs.pkl') and os.path.exists('garcVariantMap.pkl') and len(sys.argv) == 1:
         print("Found pickles, writing the output catalogue")
         drugs = pickle.load(open("drugs.pkl", "rb"))
+        logging.info("Using pickled drugs")
     #Else, load
     else:
         print("No pickles found, re-parsing")
         drugs = parse(reference, data)
+        logging.info("Re-parsed drugs")
 
 
     #Find the genes associated with specific drug resistance
@@ -850,6 +882,11 @@ if __name__ == "__main__":
         for mutation in drugs[drug]['R']:
             #These are just resistance mutations, so pull out gene names
             resistanceGenes[drug].add(mutation.split("@")[0])
+    
+    logging.info("Found some resistance genes:")
+    for gene in sorted(list(resistanceGenes)):
+        logging.info(gene)
+    logging.info("")
 
     with open("WHO-UCN-GTB-PCI-2021.7.GARC.csv", "w") as f:
         HEADER = "GENBANK_REFERENCE,CATALOGUE_NAME,CATALOGUE_VERSION,CATALOGUE_GRAMMAR,PREDICTION_VALUES,DRUG,MUTATION,PREDICTION,SOURCE,EVIDENCE,OTHER\n"
@@ -882,6 +919,7 @@ if __name__ == "__main__":
                                                     """, re.VERBOSE)
                                 if indel.fullmatch(mutation):
                                     #Matched an indel generic so skip
+                                    logging.info(f"Skipped {mutation}:{category}:{drug} due to default rule *_indel-->U")
                                     continue
                                 #Checking for nonsynonymous (non promoter) SNPs
                                 #Promoters here can go far beyond the -100 limit in gumpy
@@ -894,6 +932,7 @@ if __name__ == "__main__":
                                     name, mut, base1, base2 = nonsynon.fullmatch(mutation).groups()
                                     if base1 != base2:
                                         #This matches the gene@*? so skip
+                                        logging.info(f"Skipped {mutation}:{category}:{drug} due to default rule *?-->U")
                                         continue
 
                             if category == 'S':
@@ -912,10 +951,12 @@ if __name__ == "__main__":
                                     base2 = matches[3]
                                     if base1 == base2:
                                         #Matches the synonymous mutation so skip
+                                        logging.info(f"Skipped {mutation}:{category}:{drug} due to default rule *=-->S")
                                         continue
                                     
                             #Helpful mutation, so add it
                             f.write(common + mutation + "," + category + ",{},{},{}\n")
+                            logging.info(f"Wrote a useful row: {mutation}:{category}:{drug}")
 
                             #Check for an expert rule that gyrA/B@* --> MXF resistance = gyrA/B@* --> LEV resistance and vice versa
                             if drug == "MXF" and category == "R":
@@ -926,6 +967,7 @@ if __name__ == "__main__":
                                 if expert.fullmatch(mutation):
                                     #Match so add the LEV resistance
                                     f.write(COMMON_ALL + "LEV," + mutation + "," + category + ",{},{},{}\n")
+                                    logging.info(f"Wrote a useful row: {mutation}:{category}:{drug}")
                             if drug == "LEV" and category == "R":
                                 expert = re.compile(r"""
                                                     gyr[AB] #Leading gene name
@@ -934,6 +976,7 @@ if __name__ == "__main__":
                                 if expert.fullmatch(mutation):
                                     #Match so add the LEV resistance
                                     f.write(COMMON_ALL + "MXF," + mutation + "," + category + ",{},{},{}\n")
+                                    logging.info(f"Wrote a useful row: {mutation}:{category}:{drug}")
 
     #Add the evidence JSON
     addMetadata()
@@ -949,3 +992,6 @@ if __name__ == "__main__":
 
     #Filter out based on default rules now the extras have been added
     filterRules()
+
+    #TODO: Figure out weird behaviour here. Definitely caused by last git commit as reverting code fixes it
+    #katG@371_del_g should be in the parsed catalogue
