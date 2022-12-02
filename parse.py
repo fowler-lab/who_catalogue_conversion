@@ -402,7 +402,6 @@ def addMetadata() -> None:
             for key, val in row.items():
                 fixed[key].append(val)
     values = pd.DataFrame.from_dict(fixed)
-    # values['variant (common_name)'] = values['variant (common_name)'].apply(lambda x: x.split(" ")[0] if isinstance(x, str) else x)
 
     #Iter the GARC catalogue, match the rows of values based on the variant and drug
     evidences = []
@@ -698,19 +697,6 @@ def addExtras(reference: gumpy.Genome) -> None:
     catalogue = pd.concat([catalogue, toAdd])
     logging.info("Concated new versions with the catalogue")
 
-    #Do some filtering to ensure that only resistance conferring genes are in the catalogue
-    #We only want mutations within genes which confer resistance for each drug
-    # resistances = set([(mutation.split("@")[0], drug) for mutation, drug, prediction in catalogue[['MUTATION', 'DRUG', 'PREDICTION']].values.tolist() if prediction == "R"])
-    # toDelete = []
-    # for i, row in catalogue.iterrows():
-    #     gene = row['MUTATION'].split("@")[0]
-    #     if (gene, row['DRUG']) not in resistances:
-    #         print("Deleting ", row['MUTATION'], row['DRUG'])
-    #         logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as {gene} is not a resistance gene")
-    #         toDelete.append(i)
-    
-    # catalogue.drop(toDelete, inplace=True)
-
     catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
 
 def addDefaults(reference: gumpy.Genome):
@@ -894,16 +880,7 @@ if __name__ == "__main__":
         f.write(HEADER)
         for drug in drugs.keys():
             common = COMMON_ALL + drug + ","
-            #Write basic rules to cover all mutations not detailed here
             if resistanceGenes[drug]:
-                #There are genes associated with resistance, so add generic U rules as appropriate
-                # for gene in resistanceGenes[drug]:
-                #     f.write(common + gene+"@*?,U,{},{},{}\n")
-                #     f.write(common + gene+"@-*?,U,{},{},{}\n")
-                #     f.write(common + gene+"@*_indel,U,{},{},{}\n")
-                #     f.write(common + gene+"@-*_indel,U,{},{},{}\n")
-                #     if reference.genes[gene]['codes_protein']:
-                #         f.write(common + gene+"@*=,S,{},{},{}\n")
 
                 for category in sorted(list(drugs[drug].keys())):
                     for mutation in sorted(list(drugs[drug][category])):
@@ -992,6 +969,3 @@ if __name__ == "__main__":
 
     #Filter out based on default rules now the extras have been added
     filterRules()
-
-    #TODO: Figure out weird behaviour here. Definitely caused by last git commit as reverting code fixes it
-    #katG@371_del_g should be in the parsed catalogue
