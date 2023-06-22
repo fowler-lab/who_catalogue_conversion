@@ -1,7 +1,7 @@
 # Conversion of the WHO TB catalogue to GARC
 Convert mutations detailed within the [WHO TB catalogue](https://www.who.int/publications/i/item/9789240028173 "WHO TB catalogue") to [GARC](https://fowlerlab.org/?p=5642 "GARC") for the purpose of compatability with [piezo](https://github.com/oxfordmmm/piezo "piezo") for use as drug resistance prediction.
 
-A copy of the parsed catalogue is provided within this repo - see `WHO-UCN-GTB-PCI-2021.7.GARC.csv`
+A copy of the parsed catalogue is provided within this repo - see `WHO-UCN-GTB-PCI-2021.7.GARC.csv`. It is also stored alongside a number of tuberculosis resistance catalogues in another GitHub repo [tuberculosis-amr-catalogues](https://github.com/oxfordmmm/tuberculosis_amr_catalogues).
 
 ## Requirements
 Requires [gumpy](https://github.com/oxfordmmm/gumpy "gumpy") for finding amino acid changes. Everything should be installable through pip:
