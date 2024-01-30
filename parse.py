@@ -15,6 +15,8 @@ import pandas as pd
 from tqdm import tqdm
 import functools
 import logging
+import tempfile
+
 
 logging.basicConfig(filename='who-parse.log', filemode='w', format='%(asctime)s -  %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.DEBUG)
 print = functools.partial(print, flush=True)
@@ -78,18 +80,18 @@ def rev_comp_snp(reference, gene, pos, ref, alt, masks):
 
         ref_gene = reference.build_gene(gene)
 
-        g = gumpy.Gene(   name=gene,\
-                    nucleotide_sequence=ref_seq[mask],\
-                    nucleotide_index=reference.nucleotide_index[mask],\
-                    nucleotide_number=reference.stacked_nucleotide_number[stacked_mask],\
-                    is_cds=reference.stacked_is_cds[stacked_mask],\
-                    is_promoter=reference.stacked_is_promoter[stacked_mask],\
-                    is_indel=reference.is_indel[mask],
-                    indel_length=reference.indel_length[mask],
-                    indel_nucleotides=reference.indel_nucleotides[mask],
-                    codes_protein=reference.genes[gene]['codes_protein'],\
-                    reverse_complement=reference.genes[gene]['reverse_complement'],\
-                    feature_type=reference.genes[gene]['type'])
+        g = gumpy.Gene( gene,\
+                    ref_seq[mask],\
+                    reference.nucleotide_index[mask],\
+                    reference.stacked_nucleotide_number[stacked_mask],\
+                    reference.stacked_is_cds[stacked_mask],\
+                    reference.stacked_is_promoter[stacked_mask],\
+                    reference.is_indel[mask],
+                    reference.indel_length[mask],
+                    reference.indel_nucleotides[mask],
+                    reference.genes[gene]['reverse_complement'], \
+                    reference.genes[gene]['codes_protein'],\
+                    reference.genes[gene]['type'], [], [], [False for i in ref_seq[mask]], {})
 
         aa_mut = [(i+1, ref_aa, alt_aa) for (i, (ref_aa, alt_aa)) in enumerate(zip(ref_gene.codons, g.codons)) if ref_aa != alt_aa]
         for (pos_, r, a) in aa_mut:
@@ -150,18 +152,18 @@ def snps(reference, gene, pos, ref, alt, masks):
 
         ref_gene = reference.build_gene(gene)
 
-        g = gumpy.Gene(   name=gene,\
-                    nucleotide_sequence=ref_seq[mask],\
-                    nucleotide_index=reference.nucleotide_index[mask],\
-                    nucleotide_number=reference.stacked_nucleotide_number[stacked_mask],\
-                    is_cds=reference.stacked_is_cds[stacked_mask],\
-                    is_promoter=reference.stacked_is_promoter[stacked_mask],\
-                    is_indel=reference.is_indel[mask],
-                    indel_length=reference.indel_length[mask],
-                    indel_nucleotides=reference.indel_nucleotides[mask],
-                    codes_protein=reference.genes[gene]['codes_protein'],\
-                    reverse_complement=reference.genes[gene]['reverse_complement'],\
-                    feature_type=reference.genes[gene]['type'])
+        g = gumpy.Gene( gene,\
+                    ref_seq[mask],\
+                    reference.nucleotide_index[mask],\
+                    reference.stacked_nucleotide_number[stacked_mask],\
+                    reference.stacked_is_cds[stacked_mask],\
+                    reference.stacked_is_promoter[stacked_mask],\
+                    reference.is_indel[mask],
+                    reference.indel_length[mask],
+                    reference.indel_nucleotides[mask],
+                    reference.genes[gene]['reverse_complement'], \
+                    reference.genes[gene]['codes_protein'],\
+                    reference.genes[gene]['type'], [], [], [False for i in ref_seq[mask]], {})
 
         aa_mut = [(i+1, ref_aa, alt_aa) for (i, (ref_aa, alt_aa)) in enumerate(zip(ref_gene.codons, g.codons)) if ref_aa != alt_aa]
         for (pos_, r, a) in aa_mut:
@@ -406,7 +408,8 @@ def addMetadata() -> None:
     #Iter the GARC catalogue, match the rows of values based on the variant and drug
     evidences = []
     others = []
-    for (_, row) in tqdm(list(catalogue.iterrows())):
+    toDrop = []
+    for (i, row) in list(catalogue.iterrows()):
         #Detect generic rules and skip these as they do not have associated evidence
         generic = re.compile(r"""
                             ([a-zA-Z_0-9]+@) #Leading gene name
@@ -432,6 +435,24 @@ def addMetadata() -> None:
 
         
         vals = values.loc[(values['variant (common_name)'] == variant) & (values['drug'] == drug)]
+
+        if "LoF" in vals["Additional grading criteria"]:
+            if "del" not in garc and "!" not in garc and "fs" not in garc:
+                # print("Described variant isn't in ref/alt pair: ", variant, garc, sep="\t")
+                toDrop.append(i)
+        elif "del" in variant:
+            if "del" not in garc:
+                # print("Described variant isn't in ref/alt pair: ", variant, garc, sep="\t")
+                toDrop.append(i)
+        elif "ins" in variant:
+            if "ins" not in garc:
+                # print("Described variant isn't in ref/alt pair: ", variant, garc, sep="\t")
+                toDrop.append(i)
+        elif "fs" in variant:
+            if "ins" not in garc and "del" not in garc and "fs" not in garc:
+                # print("Described variant isn't in ref/alt pair: ", variant, garc, sep="\t")
+                toDrop.append(i)
+
         if len(vals) == 0:
             #No records found, probably due to a synonymous mutation
             evidences.append(json.dumps({}))
@@ -449,7 +470,7 @@ def addMetadata() -> None:
 
     catalogue['EVIDENCE'] = evidences
     catalogue['OTHER'] = others
-
+    catalogue.drop(toDrop, axis=0, inplace=True)
     catalogue.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
 
 def addExpertRules() -> None:
@@ -461,6 +482,76 @@ def addExpertRules() -> None:
     result = pd.concat([catalogue, expert])
     logging.info("Concated the expert rules")
     result.to_csv("WHO-UCN-GTB-PCI-2021.7.GARC.csv", index=False)
+
+def build_vcf(ref: str, alt: str, pos: int) -> gumpy.VCFFile:
+    """Parse the ref/alt from the row and build a VCF object for it
+
+    Args:
+        row (pd.Series): Row to build a variant from
+
+    Returns:
+        gumpy.VCFFile: VCF file object resulting
+    """
+    vcf = f"""##fileformat=VCFv4.2
+##source=minos, version 0.12.5
+##fileDate=2023-10-28
+##FORMAT=<ID=ALLELE_DP,Number=R,Type=Float,Description="Mean read depth of ref and each allele">
+##FORMAT=<ID=COV,Number=R,Type=Integer,Description="Number of reads on ref and alt alleles">
+##FORMAT=<ID=COV_TOTAL,Number=1,Type=Integer,Description="Total reads mapped at this site, from gramtools">
+##FORMAT=<ID=DP,Number=1,Type=Float,Description="Mean read depth of called allele (ie the ALLELE_DP of the called allele)">
+##FORMAT=<ID=FRS,Number=1,Type=Float,Description="Fraction of reads that support the genotype call">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GT_CONF,Number=1,Type=Float,Description="Genotype confidence. Difference in log likelihood of most likely and next most likely genotype">
+##minosMeanReadDepth=42.379
+##minosReadDepthVariance=937.254
+##contig=<ID=NC_000962.3,length=4411532>
+##FORMAT=<ID=GT_CONF_PERCENTILE,Number=1,Type=Float,Description="Percentile of GT_CONF">
+##FILTER=<ID=MIN_FRS,Description="Minimum FRS of 0.9">
+##FILTER=<ID=MIN_DP,Description="Minimum DP of 2">
+##FILTER=<ID=MIN_GCP,Description="Minimum GT_CONF_PERCENTILE of 0.5">
+##FILTER=<ID=MAX_DP,Description="Maximum DP of 134.22281307415324 (= 3.0 standard deviations from the mean read depth 42.379)">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
+NC_000962.3	{pos}	.	{ref}	{alt}	.	PASS	.	GT:DP:ALLELE_DP:FRS:COV_TOTAL:COV:GT_CONF:GT_CONF_PERCENTILE	1/1:94:0,94:1.0:94:0,94:590.62:92.99"""
+    with tempfile.NamedTemporaryFile("w", delete=False) as f:
+        f.write(vcf)
+    v = gumpy.VCFFile(str(f.name))
+    return v
+
+
+def parse_ref_alt(
+    reference: gumpy.Genome, ref_genes: dict[str, gumpy.Gene], ref: str, alt: str, pos: int
+) -> list[str]:
+    """Use the ref/alt/pos to pull out the variants via VCF
+
+    Args:
+        reference (gumpy.Genome): Reference genome
+        ref_genes (dict[str, gumpy.Gene]): Reference genes
+        row (pd.Series): Row of the catalogue
+
+    Returns:
+        list[str]: List of mutations in GARC originating from this row
+    """
+
+    # Find out which genes this affects
+    genes = set()
+    for idx, r in enumerate(ref):
+        mask = reference.stacked_nucleotide_index == pos + idx
+        g = reference.stacked_gene_name[mask]
+        for g_ in g:
+            genes.add(g_)
+
+    vcf = build_vcf(ref, alt, pos)
+    sample = reference + vcf
+    garc = []
+    for gene in sorted(list(genes)):
+        if gene:
+            ref_gene = ref_genes[gene]
+            alt_gene = sample.build_gene(gene)
+            diff = ref_gene - alt_gene
+            muts = diff.mutations.tolist()
+            for mut in muts:
+                garc.append(gene + "@" + mut)
+    return garc
 
 def parse(reference: gumpy.Genome, data: pd.DataFrame) -> dict:
     '''Parse the catalogue. Takes a long time due to gene rebuilding (25-40 mins)...
@@ -504,15 +595,20 @@ def parse(reference: gumpy.Genome, data: pd.DataFrame) -> dict:
     genes = set()
     garcToVariant = {} #Mapping of (GARC, drug, prediction) --> variant
 
+    ref_genes = {}
+    print("Building ref genes...")
+    for gene in tqdm(reference.genes):
+        ref_genes[gene] = reference.build_gene(gene)
+
     # Iterate over the catalogue
-    for (index, row) in data.iterrows():
+    for (index, row) in tqdm([x for x in data.iterrows()]):
         garc = []
         #Pull out gene name, pos, ref and alt
         gene = row["gene_name"]
         genes.add(gene)
-        if masks.get(gene) is None:
-            #Cache the masks
-            masks = {gene: get_masks(reference, gene)}
+        # if masks.get(gene) is None:
+        #     #Cache the masks
+        #     masks = {gene: get_masks(reference, gene)}
         pos = str(row["final_annotation.Position"])#Cast to a str for str.split(',')
         ref = row["final_annotation.ReferenceNucleotide"]
         alt = row["final_annotation.AlternativeNucleotide"]
@@ -523,7 +619,8 @@ def parse(reference: gumpy.Genome, data: pd.DataFrame) -> dict:
             print("Mulitple mutations per row: ", gene, pos, ref, alt, sep="\t")
             continue
         else:            
-            garc += to_garc(reference, gene, int(pos), ref, alt, masks)
+            garc = parse_ref_alt(reference, ref_genes, ref, alt, int(pos))
+            # garc += to_garc(reference, gene, int(pos), ref, alt, masks)
             if len(garc) > 1:
                 #There is more than 1 mutation generated from this row, so skip it
                 # print("Multiple mutations per row: ", gene, pos, ref, alt, garc, sep="\t")
@@ -595,7 +692,7 @@ def addExtras(reference: gumpy.Genome) -> None:
             gene, ref, pos, alt = promoterSNP.fullmatch(mut).groups()
             pos = int(pos)
             sample = copy.deepcopy(reference)
-            print(gene, pos, ref, alt)
+            # print(gene, pos, ref, alt)
             
             #Place the mutation within the genome based on the gene coordinates
             #Then regardless of what gene it started in, we can pull out others
@@ -617,7 +714,7 @@ def addExtras(reference: gumpy.Genome) -> None:
             gene, pos, bases = promoterIns.fullmatch(mut).groups()
             sample = copy.deepcopy(reference)
             pos = int(pos)
-            print(gene, pos, "ins", bases)
+            # print(gene, pos, "ins", bases)
 
             if reference.genes[gene]['reverse_complement']:
                 #Revcomp genes' promoters will be past the `gene end`
@@ -636,7 +733,7 @@ def addExtras(reference: gumpy.Genome) -> None:
             gene, pos, bases = promoterDel.fullmatch(mut).groups()
             sample = copy.deepcopy(reference)
             pos = int(pos)
-            print(gene, pos, "del", bases)
+            # print(gene, pos, "del", bases)
 
             if reference.genes[gene]['reverse_complement']:
                 #Revcomp genes' promoters will be past the `gene end`
@@ -667,7 +764,7 @@ def addExtras(reference: gumpy.Genome) -> None:
                 continue
             if g not in previousGenes:
                 newGenes.add((g, row['DRUG']))
-            print("Checking ", g)
+            # print("Checking ", g)
             gMutations = []
             diff = reference.build_gene(g) - sample.build_gene(g)
             m = diff.mutations
@@ -774,7 +871,7 @@ def filterRules() -> None:
         mutation = row['MUTATION']
         if (mutation.split("@")[0], row['DRUG']) not in resistanceGenes:
             toDelete = True
-            logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as it is not a resistance gene")
+            # logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as it is not a resistance gene")
         elif prediction == 'U':
             indel = re.compile(r"""
                             ([a-zA-Z_0-9]+@) #Leading gene name
@@ -785,7 +882,7 @@ def filterRules() -> None:
             if indel.fullmatch(mutation):
                 #Matched an indel generic so delete
                 toDelete = True
-                print("Deleting: ", row['MUTATION'], row['DRUG'])
+                # print("Deleting: ", row['MUTATION'], row['DRUG'])
                 logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as it matches *_indel-->U")
 
             nonsynon = re.compile(r"""
@@ -797,7 +894,7 @@ def filterRules() -> None:
                 if base1 != base2:
                     #This matches the gene@*? or gene@-*? so delete
                     toDelete = True
-                    print("Deleting: ", row['MUTATION'], row['DRUG'])
+                    # print("Deleting: ", row['MUTATION'], row['DRUG'])
                     logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as it matches *?-->U or -*?-->U")
             
         elif prediction == 'S':
@@ -817,7 +914,7 @@ def filterRules() -> None:
                 if base1 == base2:
                     #Matches the synonymous mutation so delete
                     toDelete = True
-                    print("Deleting: ", row['MUTATION'], row['DRUG'])
+                    # print("Deleting: ", row['MUTATION'], row['DRUG'])
                     logging.info(f"Removing {row['MUTATION']}:{row['DRUG']}:{row['PREDICTION']} as it matches *=-->S")
         
         if not toDelete:
@@ -962,7 +1059,7 @@ if __name__ == "__main__":
     addExpertRules()
 
     #Add the extras for cases where genes overlap at mutations
-    addExtras(reference)
+    # addExtras(reference)
 
     #Add the default rules for all resistance genes
     addDefaults(reference)
