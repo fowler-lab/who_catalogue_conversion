@@ -133,6 +133,7 @@ gumpy
 reference.json.gz
 *.csv
 !WHO-UCN-GTB-PCI-2021.7.GARC.csv
+!NC_000962.3_WHO-UCN-GTB-PCI-2021.7_v1.2_GARC1_RFUS.csv
 .~lock*
 skipped.tsv
 *.pkl

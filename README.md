@@ -10,7 +10,7 @@ pip install -r requirements.txt
 ```
 
 ## Running
-First time running will take a considerable amount of time (30+ minutes) due to consistent rebuilding of `gumpy.Gene` objects for mutations. After this, values will be cached to disk using pickle. Due to the security implications of the pickle module, **DO NOT SEND/RECIVE PICKLES**. They are blacklisted in the `.gitignore` for this reason.
+First time running will take a considerable amount of time (6+ hours) due to consistent rebuilding of `gumpy.Gene` objects for mutations. After this, values will be cached to disk using pickle. Due to the security implications of the pickle module, **DO NOT SEND/RECIVE PICKLES**. They are blacklisted in the `.gitignore` for this reason.
 ```
 python parse.py
 ```
@@ -57,6 +57,11 @@ For example, ['pncA@-5_del_g', 'pncA@317_del_t', 'pncA@386_del_atgt']  are both 
 
 The current solution is to ignore this during parsing. It is possible that this will be resolved in a future version of the catalogue. This creates a catalogue which may contain >1 row for a single mutation's effect on a drug. Alterations have been made to piezo to deal with such a catalogue, and produce a prediction based on the most significant predicted value. 
 For example, `pncA@-5_del_g` has predictions of both `R` and `S` for `PZA`. Using a prioritisation of `R > U > S`, the final prediction will be `R`
+
+## Mutations which do not match their ref/alt pair
+There are 22 rows which have long ref/alt pairs, and are described as indels in the `variant` column. The issue is that these rows are actually not indels at all - the ref and alt are the same length (due to internal clockwork limit of 50 bases). Such cases are often graded as `U` initially, but due to an additional grading rule where these are considered loss of function, these are pushed into `R`. 
+
+As these rows aren't actually the variant they claim to be, these are excluded from the catalogue as they don't make sense to include.
 
 ## Expert rules
 Separate from the catalogue, there are a set of `expert rules` which support it. The below table maps row numbers (inclusive) of `expertRules.csv` to the associated expert rule. There are further rules based on literature and similar within the report, but these are all already included within the parsed catalogue.
