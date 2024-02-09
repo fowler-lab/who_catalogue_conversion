@@ -970,6 +970,7 @@ def addDefaults(reference: gumpy.Genome):
             (gene + "@-*?", "U"),
             (gene + "@*_indel", "U"),
             (gene + "@-*_indel", "U"),
+            (gene + "@del_0.0", "U"),
         ]
         if reference.genes[gene]["codes_protein"]:
             defaults.append((gene + "@*=", "S"))
